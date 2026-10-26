@@ -36,7 +36,7 @@ Une ligne d'en-tête avec ces colonnes (ordre libre, accents et majuscules ignor
 
 - Tout est trié **du match le plus futur au plus ancien** ; les matchs sans date (« À fixer ») apparaissent en tête.
 - Si la colonne `JOURNÉE` est remplie, les matchs sont regroupés par journée.
-- Si elle est vide (ex. National), ils sont regroupés **par week-end** : du vendredi au lundi dans un même bloc, les matchs du mardi au jeudi dans un bloc « Milieu de semaine ».
+- Si elle est vide (ou ne contient pas de numéro, ex. « - »), le site **numérote les journées lui-même** : J1 = week-end du `journee1` défini dans `config.js` (22-23 août 2026), puis chaque week-end joué (vendredi → lundi) ou milieu de semaine joué = journée suivante. Les trêves ne créent pas de journée vide.
 
 Pour ajouter un sport, ajoute une ligne dans `config.js` avec le nom exact de l'onglet.
 

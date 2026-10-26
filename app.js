@@ -34,8 +34,14 @@
   }
 
   function parseDate(s) {
-    const m = String(s || "").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
+    const t = String(s || "");
+    let m = t.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4}|\d{2})\b/);          // 24/10/2026, 24-10-26
+    if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
+    m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);                                     // 2026-10-24
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    m = t.match(/Date\((\d{4}),(\d{1,2}),(\d{1,2})/);                               // Date(2026,9,24)
+    if (m) return new Date(+m[1], +m[2], +m[3]);
+    return null;
   }
 
   function parseScore(s) {
@@ -75,7 +81,7 @@
         id: clean(r[C.id]) || `${home}-${away}`,
         date: parseDate(r[C.date]),
         league: clean(r[C.league]) || "Autres",
-        day: clean(r[C.day]),
+        day: /\d/.test(r[C.day] || "") ? clean(r[C.day]) : "",   // ignore "-", "N/A", etc.
         home, away, score,
         done: done && !!score
       };
@@ -89,7 +95,7 @@
     if (!res.ok) throw new Error(res.status);
     const txt = await res.text();
     if (/^\s*</.test(txt)) throw new Error("not public");
-    return toMatches(parseCSV(txt));
+    return assignJournees(toMatches(parseCSV(txt)));
   }
 
   async function load() {
@@ -103,7 +109,7 @@
     });
     state.demo = false;
     if (okCount === 0 && CFG.demoFallback && window.DEMO_ROWS) {
-      state.data = { football: toMatches(window.DEMO_ROWS) };
+      state.data = { football: assignJournees(toMatches(window.DEMO_ROWS)) };
       state.demo = true;
     }
     if (!state.sport) {
@@ -203,12 +209,35 @@
     return { type: "mid", date: addDays(d, 3 - d.getDay()) };
   }
 
+  // Championnat sans colonne JOURNÉE remplie : on numérote nous-mêmes.
+  // J1 = week-end de CFG.journee1 ; chaque week-end (ou milieu de semaine) joué ensuite = journée suivante.
+  function assignJournees(matches) {
+    const start = parseDate(CFG.journee1 || "2026-08-22");
+    if (!start) return matches;
+    const startKey = periodKey(start);
+    groupBy(matches, (m) => m.league).forEach((ms) => {
+      if (ms.some((m) => m.day)) return;                       // le Sheet fournit déjà les journées
+      const keys = [...new Set(ms.filter((m) => m.date).map((m) => periodKey(m.date)))]
+        .filter((k) => k >= startKey).sort();
+      ms.forEach((m) => {
+        if (!m.date) return;
+        const i = keys.indexOf(periodKey(m.date));
+        if (i >= 0) { m.day = "J" + (i + 1); m.generated = true; }
+      });
+    });
+    return matches;
+  }
+
+  function periodKey(date) {
+    const a = weekendAnchor(date), d = a.date;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}:${a.type}`;
+  }
+
   function blockKey(m) {
     if (m.day) return "J:" + m.day;
     if (!m.date) return "TBD";
-    const a = weekendAnchor(m.date);
-    const d = a.date;
-    return `${a.type}:${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const [iso, type] = periodKey(m.date).split(":");
+    return `${type}:${iso}`;
   }
 
   function dayBlock({ key, items }) {

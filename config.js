@@ -14,6 +14,10 @@ window.DELAUNAY_CONFIG = {
     { key: "tennis-de-table", label: "Tennis de table", tab: "TENNIS DE TABLE" }
   ],
 
+  // Pour les championnats sans colonne JOURNÉE : week-end de la journée 1 (samedi, AAAA-MM-JJ).
+  // Les journées suivantes sont numérotées automatiquement, un week-end joué = une journée.
+  journee1: "2026-08-22",
+
   // Rafraîchissement automatique (en minutes). 0 = désactivé.
   refreshMinutes: 5,
 
