@@ -32,6 +32,12 @@ Une ligne d'en-tête avec ces colonnes (ordre libre, accents et majuscules ignor
 - `STATUT` : `Terminé` ou `À venir`.
 - `id match` sert d'ancre : `…/#m-20260905_BAYEUXFC_STADESOTTEVILLECC_FOOT` pointe vers le match.
 
+### Ordre et regroupement des matchs
+
+- Tout est trié **du match le plus futur au plus ancien** ; les matchs sans date (« À fixer ») apparaissent en tête.
+- Si la colonne `JOURNÉE` est remplie, les matchs sont regroupés par journée.
+- Si elle est vide (ex. National), ils sont regroupés **par week-end** : du vendredi au lundi dans un même bloc, les matchs du mardi au jeudi dans un bloc « Milieu de semaine ».
+
 Pour ajouter un sport, ajoute une ligne dans `config.js` avec le nom exact de l'onglet.
 
 ## 3. Mise en ligne sur GitHub Pages

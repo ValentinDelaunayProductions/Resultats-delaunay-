@@ -178,29 +178,74 @@
 
     html += leagues.map((lg) => {
       const ms = byLeague.get(lg);
-      const days = groupBy(ms, (m) => m.day || "—");
-      const dayKeys = [...days.keys()].sort((a, b) => dayNum(b) - dayNum(a));
+      const blocks = [...groupBy(ms, blockKey).entries()]
+        .map(([key, items]) => ({ key, items, t: blockTime(items) }))
+        // Du plus futur au plus passé ; « date à fixer » en tête
+        .sort((a, b) => (b.t - a.t) || (dayNum(b.items[0].day) - dayNum(a.items[0].day)));
       return `<section class="league">
         <header class="league__head"><h2 class="league__name">${esc(lg)}</h2><span class="league__count">${ms.length} match${ms.length > 1 ? "s" : ""}</span></header>
-        ${dayKeys.map((d) => dayBlock(d, days.get(d))).join("")}
+        ${blocks.map(dayBlock).join("")}
       </section>`;
     }).join("");
 
     $("#content").innerHTML = html;
   }
 
-  function dayBlock(d, ms) {
-    ms.sort((a, b) => (a.date || 0) - (b.date || 0));
-    const dates = ms.map((m) => m.date).filter(Boolean);
-    const fmt = (dt) => dt.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
-    let label = "";
-    if (dates.length) {
-      const a = dates[0], b = dates[dates.length - 1];
-      label = a.getTime() === b.getTime() ? fmt(a) : `${fmt(a)} → ${fmt(b)}`;
+  // ---------- Regroupement : journée si dispo, sinon week-end ----------
+  const time = (m) => (m.date ? m.date.getTime() : Infinity);
+  const blockTime = (items) => Math.max(...items.map(time));
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+  // Ven→Lun rattachés au week-end (clé = samedi), Mar→Jeu = milieu de semaine (clé = mercredi)
+  function weekendAnchor(d) {
+    const off = { 5: 1, 6: 0, 0: -1, 1: -2 }[d.getDay()];
+    if (off !== undefined) return { type: "we", date: addDays(d, off) };
+    return { type: "mid", date: addDays(d, 3 - d.getDay()) };
+  }
+
+  function blockKey(m) {
+    if (m.day) return "J:" + m.day;
+    if (!m.date) return "TBD";
+    const a = weekendAnchor(m.date);
+    const d = a.date;
+    return `${a.type}:${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function dayBlock({ key, items }) {
+    items.sort((a, b) => time(b) - time(a));
+    const fmtDay = (dt, opts) => dt.toLocaleDateString("fr-FR", opts);
+    const dates = items.map((m) => m.date).filter(Boolean);
+    let badge, label = "";
+
+    if (key.startsWith("J:")) {
+      badge = key.slice(2);
+      if (dates.length) {
+        const newest = dates[0], oldest = dates[dates.length - 1];
+        const f = (d) => fmtDay(d, { weekday: "short", day: "numeric", month: "long" });
+        label = newest.getTime() === oldest.getTime() ? f(newest) : `${f(oldest)} → ${f(newest)}`;
+      }
+    } else if (key === "TBD") {
+      badge = "À fixer";
+      label = "Date non communiquée";
+    } else {
+      const [type, iso] = key.split(":");
+      const [y, mo, d] = iso.split("-").map(Number);
+      const anchor = new Date(y, mo - 1, d);
+      if (type === "we") {
+        badge = "Week-end";
+        const sun = addDays(anchor, 1);
+        label = anchor.getMonth() === sun.getMonth()
+          ? `${anchor.getDate()} – ${fmtDay(sun, { day: "numeric", month: "long", year: "numeric" })}`
+          : `${fmtDay(anchor, { day: "numeric", month: "long" })} – ${fmtDay(sun, { day: "numeric", month: "long", year: "numeric" })}`;
+      } else {
+        badge = "Semaine";
+        label = `Milieu de semaine · ${fmtDay(anchor, { day: "numeric", month: "long" })}`;
+      }
     }
+
     return `<div class="day">
-      <div class="day__head"><span class="day__badge">${esc(d)}</span><span class="day__date">${label}</span></div>
-      <div class="grid">${ms.map(card).join("")}</div>
+      <div class="day__head"><span class="day__badge">${esc(badge)}</span><span class="day__date">${label}</span></div>
+      <div class="grid">${items.map(card).join("")}</div>
     </div>`;
   }
 
