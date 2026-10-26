@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Résultats — Delaunay+</title>
+  <meta name="description" content="Tous les résultats des championnats suivis par Delaunay+">
+  <meta name="theme-color" content="#000000">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__inner">
+      <a class="brand" href="./" aria-label="Delaunay+ — accueil">DELAUNAY<span>+</span></a>
+      <span class="top__tag">Résultats</span>
+      <span class="top__status" id="status" aria-live="polite"></span>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="hero__kicker" id="heroKicker">Saison 2026 — 2027</p>
+      <h1 class="hero__title">Tous les<br><em>scores.</em></h1>
+      <div class="stats" id="stats"></div>
+    </div>
+  </section>
+
+  <nav class="sports" aria-label="Sports">
+    <div class="wrap sports__inner" id="sportTabs" role="tablist"></div>
+  </nav>
+
+  <main class="wrap main">
+    <div class="toolbar">
+      <div class="chips" id="leagueChips" aria-label="Championnats"></div>
+      <div class="toolbar__right">
+        <div class="seg" role="group" aria-label="Statut">
+          <button class="seg__btn is-on" data-status="all">Tous</button>
+          <button class="seg__btn" data-status="done">Terminés</button>
+          <button class="seg__btn" data-status="upcoming">À venir</button>
+        </div>
+        <label class="search">
+          <span class="sr-only">Rechercher une équipe</span>
+          <input id="search" type="search" placeholder="Rechercher une équipe…" autocomplete="off">
+        </label>
+      </div>
+    </div>
+
+    <div id="content" class="content">
+      <div class="loading"><span></span><span></span><span></span></div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__inner">
+      <span class="brand brand--sm">DELAUNAY<span>+</span></span>
+      <span id="updated">—</span>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

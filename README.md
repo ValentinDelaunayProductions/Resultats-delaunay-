@@ -1,2 +1,47 @@
-# Resultats-delaunay-
-Création : 26/10/2026
+# Résultats Delaunay+
+
+Site statique qui affiche les scores de tous les championnats, lus directement depuis le Google Sheet « SCORES DE TOUS LES MATCHS ».
+
+## Fichiers
+
+| Fichier | Rôle |
+| --- | --- |
+| `index.html` | Structure de la page |
+| `style.css` | Charte Delaunay+ (noir / jaune #ffde00 / blanc) |
+| `app.js` | Lecture du Sheet, filtres, affichage |
+| `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement |
+
+## 1. Rendre le Sheet lisible par le site
+
+Le site lit chaque onglet du Sheet au format CSV. Il faut que le Sheet soit consultable sans connexion :
+
+**Partager → Accès général → « Tous les utilisateurs disposant du lien » → Lecteur.**
+
+Tant que ce n'est pas fait, le site affiche des données d'exemple avec un bandeau jaune.
+
+> Tout le contenu du Sheet (y compris les colonnes `error` et `details`) devient lisible par quiconque a le lien. Si tu veux éviter ça, crée un Sheet dédié qui ne contient que les résultats (via `IMPORTRANGE` ou n8n) et mets son ID dans `config.js`.
+
+## 2. Format attendu de chaque onglet
+
+Une ligne d'en-tête avec ces colonnes (ordre libre, accents et majuscules ignorés) :
+
+`DATE` · `LIGUE` · `JOURNÉE` · `DOMICILE` · `SCORE` · `EXTÉRIEUR` · `id match` · `STATUT`
+
+- `DATE` au format `JJ/MM/AAAA` (peut être vide).
+- `SCORE` au format `1 - 0` ; `VS` ou vide pour un match à venir.
+- `STATUT` : `Terminé` ou `À venir`.
+- `id match` sert d'ancre : `…/#m-20260905_BAYEUXFC_STADESOTTEVILLECC_FOOT` pointe vers le match.
+
+Pour ajouter un sport, ajoute une ligne dans `config.js` avec le nom exact de l'onglet.
+
+## 3. Mise en ligne sur GitHub Pages
+
+1. Dépose ces 4 fichiers à la racine du dépôt.
+2. **Settings → Pages → Source : Deploy from a branch → `main` / `/ (root)`** → Save.
+3. Le site est disponible après une minute à `https://<compte>.github.io/<dépôt>/`.
+
+Le site se met à jour tout seul : à chaque visite et toutes les 5 minutes, il relit le Sheet.
+
+## Polices
+
+La charte utilise **Arges** (titres) et **Area** (texte). Ce sont des polices sous licence : si tu as les fichiers, place `Arges-Normal.woff2` et `Area-Normal.woff2` dans un dossier `fonts/`, ils seront utilisés automatiquement. Sinon le site utilise Antonio et Manrope (Google Fonts), visuellement proches.
