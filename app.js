@@ -35,10 +35,10 @@
 
   function parseDate(s) {
     const t = String(s || "");
-    let m = t.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4}|\d{2})\b/);          // 24/10/2026, 24-10-26
-    if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
-    m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);                                     // 2026-10-24
+    let m = t.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})/);                                // 2026-10-24
     if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    m = t.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4}|\d{2})\b/);                // 24/10/2026, 24-10-26
+    if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
     m = t.match(/Date\((\d{4}),(\d{1,2}),(\d{1,2})/);                               // Date(2026,9,24)
     if (m) return new Date(+m[1], +m[2], +m[3]);
     return null;
@@ -210,19 +210,25 @@
   }
 
   // Championnat sans colonne JOURNÉE remplie : on numérote nous-mêmes.
-  // J1 = week-end de CFG.journee1 ; chaque week-end (ou milieu de semaine) joué ensuite = journée suivante.
-  function assignJournees(matches) {
-    const start = parseDate(CFG.journee1 || "2026-08-22");
-    if (!start) return matches;
-    const startKey = periodKey(start);
+  // 1) Écarte l'ancienne saison (matchs datés avant CFG.debutSaison).
+  // 2) Championnat sans colonne JOURNÉE remplie : numérotation automatique.
+  //    Référence : le week-end de CFG.journeeRef.date = journée CFG.journeeRef.numero ;
+  //    chaque week-end (ou milieu de semaine) joué ensuite = journée suivante, et inversement avant.
+  function assignJournees(all) {
+    const season = parseDate(CFG.debutSaison || "");
+    const matches = season ? all.filter((m) => !m.date || m.date >= season) : all;
+    const ref = CFG.journeeRef || {};
+    const refDate = parseDate(ref.date || "");
+    if (!refDate) return matches;
+    const refKey = periodKey(refDate), refNum = +ref.numero || 1;
     groupBy(matches, (m) => m.league).forEach((ms) => {
       if (ms.some((m) => m.day)) return;                       // le Sheet fournit déjà les journées
-      const keys = [...new Set(ms.filter((m) => m.date).map((m) => periodKey(m.date)))]
-        .filter((k) => k >= startKey).sort();
+      const keys = [...new Set(ms.filter((m) => m.date).map((m) => periodKey(m.date)))].sort();
+      const refIdx = keys.filter((k) => k < refKey).length;    // position du week-end de référence
       ms.forEach((m) => {
         if (!m.date) return;
-        const i = keys.indexOf(periodKey(m.date));
-        if (i >= 0) { m.day = "J" + (i + 1); m.generated = true; }
+        const n = refNum + keys.indexOf(periodKey(m.date)) - refIdx;
+        if (n >= 1) { m.day = "J" + n; m.generated = true; }
       });
     });
     return matches;
