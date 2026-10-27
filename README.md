@@ -41,6 +41,16 @@ Une ligne d'en-tête avec ces colonnes (ordre libre, accents et majuscules ignor
 
 Pour ajouter un sport, ajoute une ligne dans `config.js` avec le nom exact de l'onglet.
 
+## Section « Matchs Delaunay+ »
+
+Le bouton **Matchs Delaunay+** (lien direct : `…/#delaunay`) affiche l'onglet **scores** du Sheet *MATCHS D+*, rempli par le workflow n8n « Associer scores Delaunay+ ».
+
+- Colonnes lues : `ID`, `DATE`, `SPORT`, `CHAMPIONNAT`, `JOURNÉE`, `MATCH`, `SCORE`, `CONFIANCE`, `MATCH SCORE`, `ID SCORE`, `CORRESPONDANCE`, `LIEN`.
+- Couleur du score selon la confiance : **vert ≥ 85 %**, **orange 60–84 %**, **rouge < 60 %**. Sous chaque match douteux, le site affiche le match des fédérations avec lequel il a été rapproché.
+- Filtre « À vérifier » pour ne voir que les cas < 85 %, les plus douteux en premier.
+- Si la journée manque (ex. National), elle est reprise de la journée calculée dans « Tous les scores ».
+- Le Sheet *MATCHS D+* doit être partagé en « Tous les utilisateurs disposant du lien » → Lecteur. L'ID et l'onglet se règlent dans `config.js` (`delaunayPlus`).
+
 ## 3. Mise en ligne sur GitHub Pages
 
 1. Dépose ces 4 fichiers à la racine du dépôt.

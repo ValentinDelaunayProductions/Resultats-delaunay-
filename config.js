@@ -14,6 +14,12 @@ window.DELAUNAY_CONFIG = {
     { key: "tennis-de-table", label: "Tennis de table", tab: "TENNIS DE TABLE" }
   ],
 
+  // Section « Matchs Delaunay+ » : onglet « scores » du Sheet MATCHS D+ (rempli par n8n)
+  delaunayPlus: {
+    sheetId: "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+    gid: "1700641691"          // identifiant de l'onglet « scores » (gid=... dans l'URL)
+  },
+
   // Début de la saison en cours : les matchs datés avant sont masqués (ancienne saison).
   debutSaison: "2026-08-22",
 

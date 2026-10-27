@@ -9,7 +9,11 @@
     league: "all",
     status: "all",
     q: "",
-    demo: false
+    demo: false,
+    view: /delaunay/i.test(location.hash) ? "dplus" : "all",   // "all" = tous les scores, "dplus" = matchs Delaunay+
+    dplus: [],
+    dplusDemo: false,
+    conf: "all"            // filtre de confiance (vue Delaunay+)
   };
 
   // ---------- Utils ----------
@@ -112,14 +116,69 @@
       state.data = { football: assignJournees(toMatches(window.DEMO_ROWS)) };
       state.demo = true;
     }
+    try { state.dplus = await fetchDplus(); state.dplusDemo = false; }
+    catch (e) {
+      state.dplus = CFG.demoFallback && window.DEMO_DPLUS ? toDplus(window.DEMO_DPLUS) : [];
+      state.dplusDemo = !!state.dplus.length;
+    }
+    linkDplusJournees();
     if (!state.sport) {
-      const first = CFG.sports.find((s) => (state.data[s.key] || []).length) || CFG.sports[0];
+      const has = state.view === "dplus" ? (k) => state.dplus.some((d) => d.sport === k) : (k) => (state.data[k] || []).length;
+      const first = CFG.sports.find((s) => has(s.key)) || CFG.sports[0];
       state.sport = first.key;
     }
     setStatus(state.demo ? "Données d'exemple" : "En direct", !state.demo);
     $("#updated").textContent = "Mis à jour le " + new Date().toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
     render();
   }
+
+  // ---------- Delaunay+ ----------
+  async function fetchDplus() {
+    const D = CFG.delaunayPlus || {};
+    if (!D.sheetId) throw new Error("non configuré");
+    const sel = D.gid ? `gid=${D.gid}` : `sheet=${encodeURIComponent(D.tab || "scores")}`;
+    const res = await fetch(`https://docs.google.com/spreadsheets/d/${D.sheetId}/gviz/tq?tqx=out:csv&headers=1&${sel}&t=${Date.now()}`);
+    if (!res.ok) throw new Error(res.status);
+    const txt = await res.text();
+    if (/^\s*</.test(txt)) throw new Error("not public");
+    return toDplus(parseCSV(txt));
+  }
+
+  function toDplus(rows) {
+    const hIdx = rows.findIndex((r) => r.some((c) => norm(c) === "MATCH") && r.some((c) => norm(c) === "CONFIANCE"));
+    if (hIdx < 0) return [];
+    const head = rows[hIdx].map(norm);
+    const col = (n) => head.indexOf(n);
+    const g = (r, n) => clean(r[col(n)] ?? "");
+    return rows.slice(hIdx + 1).map((r) => {
+      const match = g(r, "MATCH");
+      if (!match) return null;
+      const [home, away] = match.split(" / ").map(clean);
+      const conf = parseFloat(String(g(r, "CONFIANCE")).replace(",", ".").replace("%", ""));
+      const score = parseScore(g(r, "SCORE"));
+      const sportTxt = norm(g(r, "SPORT"));
+      const sport = (CFG.sports.find((s) => sportTxt.includes(norm(s.label))) || {}).key || "";
+      return {
+        id: g(r, "ID") || match, date: parseDate(g(r, "DATE")), sport,
+        league: g(r, "CHAMPIONNAT") || "Championnat inconnu",
+        day: /\d/.test(g(r, "JOURNEE")) ? g(r, "JOURNEE") : "",
+        home: home || match, away: away || "", score,
+        conf: isNaN(conf) ? 0 : conf <= 1 ? Math.round(conf * 100) : Math.round(conf),
+        matchedWith: g(r, "MATCH SCORE"), scoreId: g(r, "ID SCORE"),
+        note: g(r, "CORRESPONDANCE"), link: g(r, "LIEN")
+      };
+    }).filter(Boolean);
+  }
+
+  // Journée manquante (ex. National) : reprise de la journée calculée côté « Tous les scores »
+  function linkDplusJournees() {
+    const byId = new Map();
+    Object.values(state.data).forEach((ms) => ms.forEach((m) => byId.set(m.id, m)));
+    state.dplus.forEach((d) => { if (!d.day && byId.has(d.scoreId)) d.day = byId.get(d.scoreId).day || ""; });
+  }
+
+  const confLevel = (c) => (c >= 85 ? "ok" : c >= 60 ? "mid" : "low");
+  const confLabel = { ok: "Sûr", mid: "À vérifier", low: "Douteux" };
 
   function setStatus(txt, live) {
     const el = $("#status");
@@ -129,16 +188,101 @@
 
   // ---------- Render ----------
   function render() {
+    renderViews();
     renderTabs();
+    renderSeg();
+    if (state.view === "dplus") {
+      const all = state.dplus.filter((d) => d.sport === state.sport);
+      renderDplusStats(all);
+      renderChips(all);
+      renderDplus(all);
+      return;
+    }
     const all = state.data[state.sport] || [];
     renderStats(all);
     renderChips(all);
     renderMatches(all);
   }
 
+  function renderViews() {
+    document.querySelectorAll("[data-view]").forEach((b) => {
+      const on = b.dataset.view === state.view;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-selected", on);
+      if (b.dataset.view === "dplus") b.querySelector("small").textContent = state.dplus.length;
+    });
+    $("#heroTitle").innerHTML = state.view === "dplus" ? "Matchs<br><em>Delaunay+</em>" : "Tous les<br><em>scores.</em>";
+    document.body.classList.toggle("is-dplus", state.view === "dplus");
+  }
+
+  function renderSeg() {
+    const opts = state.view === "dplus"
+      ? [["conf", "all", "Tous"], ["conf", "check", "À vérifier"], ["conf", "ok", "Sûrs"]]
+      : [["status", "all", "Tous"], ["status", "done", "Terminés"], ["status", "upcoming", "À venir"]];
+    const cur = state.view === "dplus" ? state.conf : state.status;
+    $("#seg").innerHTML = opts.map(([k, v, l]) => `<button class="seg__btn ${cur === v ? "is-on" : ""}" data-${k}="${v}">${l}</button>`).join("");
+  }
+
+  function renderDplusStats(all) {
+    const ok = all.filter((d) => d.conf >= 85).length;
+    $("#stats").innerHTML = [
+      [all.length, "Matchs D+"],
+      [ok, "Sûrs"],
+      [all.length - ok, "À vérifier"]
+    ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  }
+
+  function renderDplus(all) {
+    const q = norm(state.q);
+    const list = all.filter((d) =>
+      (state.league === "all" || d.league === state.league) &&
+      (state.conf === "all" || (state.conf === "ok" ? d.conf >= 85 : d.conf < 85)) &&
+      (!q || norm(d.home + " " + d.away + " " + d.matchedWith).includes(q))
+    );
+    let html = state.dplusDemo ? `<div class="notice">L'onglet « scores » du Sheet MATCHS D+ n'est pas encore accessible : affichage de données d'exemple. Voir le README.</div>` : "";
+    html += `<div class="legend"><span class="legend__item legend__item--ok">≥ 85 % Sûr</span><span class="legend__item legend__item--mid">60 – 84 % À vérifier</span><span class="legend__item legend__item--low">&lt; 60 % Douteux</span></div>`;
+    if (!list.length) {
+      $("#content").innerHTML = html + `<div class="empty"><b>Aucun match</b>Rien ne correspond à ces filtres pour le moment.</div>`;
+      return;
+    }
+    // Regroupé par date, du plus récent au plus ancien
+    const byDate = [...groupBy(list, (d) => (d.date ? d.date.getTime() : 0)).entries()].sort((a, b) => b[0] - a[0]);
+    html += byDate.map(([t, items]) => {
+      items.sort((a, b) => a.conf - b.conf);   // les plus douteux en premier
+      const label = t ? new Date(t).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Date inconnue";
+      const doubt = items.filter((d) => d.conf < 85).length;
+      return `<div class="day">
+        <div class="day__head"><span class="day__badge">${esc(label)}</span><span class="day__date">${items.length} match${items.length > 1 ? "s" : ""}${doubt ? ` · ${doubt} à vérifier` : ""}</span></div>
+        <div class="grid">${items.map(dcard).join("")}</div>
+      </div>`;
+    }).join("");
+    $("#content").innerHTML = html;
+  }
+
+  function dcard(d) {
+    const lvl = confLevel(d.conf);
+    const [h, a] = d.score || [];
+    const has = !!d.score;
+    const hw = has && h > a, aw = has && a > h;
+    const team = (name, win) => `<div class="team ${win ? "is-win" : ""}"><span class="team__mono">${esc(mono(name))}</span><span class="team__name" title="${esc(name)}">${esc(name)}</span></div>`;
+    const pts = (v, win) => has ? `<div class="pts pts--${lvl} ${win ? "is-win" : (hw || aw) ? "is-lose" : ""}">${v}</div>` : `<div class="pts pts--vs">—</div>`;
+    const meta = [d.day, d.league].filter(Boolean).map(esc).join(" · ");
+    const showMatch = d.matchedWith && lvl !== "ok";
+    return `<article class="match dmatch dmatch--${lvl}" id="d-${esc(d.id)}">
+      <div class="match__meta"><span class="dmatch__league" title="${esc(d.league)}">${meta}</span><span class="conf conf--${lvl}" title="${esc(d.note)}">${d.conf} %</span></div>
+      ${team(d.home, hw)}${pts(h, hw)}
+      ${team(d.away, aw)}${pts(a, aw)}
+      <div class="dmatch__foot">
+        ${showMatch ? `<span class="dmatch__check">Rapproché avec <b>${esc(d.matchedWith)}</b>${d.note && !/^S[uû]r$/i.test(d.note) ? ` — ${esc(d.note)}` : ""}</span>`
+                    : `<span class="dmatch__check dmatch__check--ok">${has ? confLabel[lvl] : esc(d.note || "Score pas encore publié")}</span>`}
+        ${d.link ? `<a class="dmatch__link" href="${esc(d.link)}" target="_blank" rel="noopener">Delaunay+ ↗</a>` : ""}
+      </div>
+    </article>`;
+  }
+
   function renderTabs() {
     $("#sportTabs").innerHTML = CFG.sports.map((s) => {
-      const n = (state.data[s.key] || []).length;
+      const n = state.view === "dplus" ? state.dplus.filter((d) => d.sport === s.key).length : (state.data[s.key] || []).length;
       return `<button class="tab ${s.key === state.sport ? "is-on" : ""}" role="tab" aria-selected="${s.key === state.sport}" data-sport="${s.key}">${esc(s.label)}<small>${n}</small></button>`;
     }).join("");
   }
@@ -305,14 +449,18 @@
 
   // ---------- Events ----------
   document.addEventListener("click", (e) => {
-    const t = e.target.closest("[data-sport],[data-league],[data-status]");
+    const t = e.target.closest("[data-sport],[data-league],[data-status],[data-view],[data-conf]");
     if (!t) return;
+    if (t.dataset.view) {
+      state.view = t.dataset.view; state.league = "all";
+      try { history.replaceState(null, "", state.view === "dplus" ? "#delaunay" : location.pathname + location.search); } catch (err) { /* aperçu */ }
+      const pool = state.view === "dplus" ? (k) => state.dplus.some((d) => d.sport === k) : (k) => (state.data[k] || []).length;
+      if (!pool(state.sport)) state.sport = (CFG.sports.find((s) => pool(s.key)) || CFG.sports[0]).key;
+    }
+    if (t.dataset.conf) state.conf = t.dataset.conf;
     if (t.dataset.sport) { state.sport = t.dataset.sport; state.league = "all"; }
     if (t.dataset.league) state.league = t.dataset.league;
-    if (t.dataset.status) {
-      state.status = t.dataset.status;
-      document.querySelectorAll(".seg__btn").forEach((b) => b.classList.toggle("is-on", b === t));
-    }
+    if (t.dataset.status) state.status = t.dataset.status;
     render();
   });
   $("#search").addEventListener("input", (e) => { state.q = e.target.value; render(); });
@@ -334,6 +482,13 @@
     ["19/09/2026", "RÉGIONAL 1 - GROUPE A", "J2", "QRM", "2 - 0", "HAVRE CAUCRIAUV S", "20260919_QRM_HAVRECAUCRIAUVS_FOOT", "Terminé"],
     ["20/09/2026", "RÉGIONAL 1 - GROUPE A", "J2", "FC SERQUIGNY NASSAND", "0 - 6", "FC ROUEN 1899", "20260920_FCSERQUIGNYNASSAND_FCROUEN1899_FOOT", "Terminé"],
     ["03/10/2026", "RÉGIONAL 1 - GROUPE A", "J3", "HAVRE CAUCRIAUV S", "3 - 0", "FC SERQUIGNY NASSAND", "20261003_HAVRECAUCRIAUVS_FCSERQUIGNYNASSAND_FOOT", "Terminé"]
+  ];
+
+  window.DEMO_DPLUS = [
+    ["ID", "DATE", "SPORT", "CHAMPIONNAT", "JOURNÉE", "MATCH", "SCORE", "CONFIANCE", "MATCH SCORE", "ID SCORE", "CORRESPONDANCE", "LIEN"],
+    ["20261025_OLYMPIQUEH_SCTHIBERVI_FOOTBALL", "25/10/2026", "Football", "RÉGIONAL 1 FEMININ - POULE UNIQUE", "J6", "Olympique-Havrais Tréfileries-Neiges (F) / SC Thiberville (F)", "1 - 1", "96", "OH TREFILERIE NEIGES / SC THIBERVILLE", "20261025_OHTREFILERIENEIGES_SCTHIBERVILLE_FOOT", "Sûr", "https://delaunayplus.com/"],
+    ["20261025_HAVREATHLE_CALISIEUXP_FOOTBALL", "25/10/2026", "Football", "RÉGIONAL 1 - GROUPE A", "J7", "Havre Athletic Club / CA Lisieux Pays d'Auge", "2 - 0", "75", "HAVRE AC / CA LISIEUX PA", "x2", "À vérifier", "https://delaunayplus.com/"],
+    ["20261024_STADEMALHE_FCROUEN_FOOTBALL", "24/10/2026", "Football", "NATIONAL 2 - E", "", "Stade Malherbe Caen B / FC Rouen 1899", "0 - 2", "48", "SM CAEN 2 / FC ROUEN 1899", "x4", "À vérifier : autre match proche (CAEN B / ROUEN)", "https://delaunayplus.com/"]
   ];
 
   load();

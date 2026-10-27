@@ -23,7 +23,11 @@
   <section class="hero">
     <div class="wrap">
       <p class="hero__kicker" id="heroKicker">Saison 2026 — 2027</p>
-      <h1 class="hero__title">Tous les<br><em>scores.</em></h1>
+      <h1 class="hero__title" id="heroTitle">Tous les<br><em>scores.</em></h1>
+      <div class="views" role="tablist" aria-label="Sections">
+        <button class="view is-on" role="tab" data-view="all">Tous les scores</button>
+        <button class="view" role="tab" data-view="dplus">Matchs Delaunay+<small>0</small></button>
+      </div>
       <div class="stats" id="stats"></div>
     </div>
   </section>
@@ -36,11 +40,7 @@
     <div class="toolbar">
       <div class="chips" id="leagueChips" aria-label="Championnats"></div>
       <div class="toolbar__right">
-        <div class="seg" role="group" aria-label="Statut">
-          <button class="seg__btn is-on" data-status="all">Tous</button>
-          <button class="seg__btn" data-status="done">Terminés</button>
-          <button class="seg__btn" data-status="upcoming">À venir</button>
-        </div>
+        <div class="seg" role="group" aria-label="Filtre" id="seg"></div>
         <label class="search">
           <span class="sr-only">Rechercher une équipe</span>
           <input id="search" type="search" placeholder="Rechercher une équipe…" autocomplete="off">

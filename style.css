@@ -144,3 +144,44 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   .stat { padding: 12px; }
   .stat span { font-size: 10px; letter-spacing: .04em; }
 }
+
+/* ============================================================
+   Sections : Tous les scores / Matchs Delaunay+
+   ============================================================ */
+:root { --ok: #3ddc84; --mid: #ff9f1c; --low: #ff4d5e; }
+.views { display: inline-flex; gap: 4px; margin-top: 24px; padding: 4px; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 14px; max-width: 100%; }
+.view { font-family: var(--display); text-transform: uppercase; letter-spacing: .05em; font-size: 16px; padding: 9px 16px; border-radius: 10px; color: var(--soft); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.view small { font-family: var(--text); font-size: 11px; color: var(--mute); }
+.view.is-on { background: var(--yellow); color: var(--black); }
+.view.is-on small { color: rgba(0,0,0,.6); }
+@media (max-width: 420px) { .view { font-size: 14px; padding: 8px 10px; } }
+
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; font-size: 12px; color: var(--mute); }
+.legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.legend__item::before { content: ""; width: 10px; height: 10px; border-radius: 3px; }
+.legend__item--ok::before { background: var(--ok); }
+.legend__item--mid::before { background: var(--mid); }
+.legend__item--low::before { background: var(--low); }
+
+.dmatch { border-left-width: 3px; }
+.dmatch--ok { border-left-color: var(--ok); }
+.dmatch--mid { border-left-color: var(--mid); }
+.dmatch--low { border-left-color: var(--low); background: linear-gradient(90deg, rgba(255,77,94,.07), transparent 40%), var(--ink-1); }
+.dmatch__league { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; margin-right: 10px; }
+.conf { flex: none; font-family: var(--text); font-weight: 800; font-size: 11px; letter-spacing: .02em; padding: 2px 8px; border-radius: 999px; color: var(--black); }
+.conf--ok { background: var(--ok); }
+.conf--mid { background: var(--mid); }
+.conf--low { background: var(--low); color: var(--white); }
+.dmatch .pts--ok { color: var(--ok); }
+.dmatch .pts--mid { color: var(--mid); }
+.dmatch .pts--low { color: var(--low); }
+.dmatch .pts.is-lose { opacity: .5; }
+.dmatch .team.is-win .team__mono { background: var(--white); }
+.dmatch__foot { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--ink-3); font-size: 12px; color: var(--mute); }
+.dmatch__check { min-width: 0; }
+.dmatch__check b { color: var(--soft); font-weight: 600; }
+.dmatch--mid .dmatch__check b { color: var(--mid); }
+.dmatch--low .dmatch__check b { color: var(--low); }
+.dmatch__link { flex: none; color: var(--yellow); text-decoration: none; font-weight: 700; }
+.dmatch__link:hover { text-decoration: underline; }
+.day__badge { text-transform: none; }
