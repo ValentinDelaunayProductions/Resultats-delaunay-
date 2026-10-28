@@ -20,6 +20,13 @@ window.DELAUNAY_CONFIG = {
     gid: "1700641691"          // identifiant de l'onglet « scores » (gid=... dans l'URL)
   },
 
+  // Sections « Matchs à venir » et « Rugby » : onglet « MATCH A PROGRAMMER » du Sheet MATCHS à venir D+
+  // (rempli par le workflow n8n « Calendrier matchs à programmer »)
+  aProgrammer: {
+    sheetId: "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+    gid: "349643127"           // identifiant de l'onglet « MATCH A PROGRAMMER »
+  },
+
   // Début de la saison en cours : les matchs datés avant sont masqués (ancienne saison).
   debutSaison: "2026-08-22",
 

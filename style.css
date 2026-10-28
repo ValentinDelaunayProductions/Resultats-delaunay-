@@ -185,3 +185,78 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .dmatch__link { flex: none; color: var(--yellow); text-decoration: none; font-weight: 700; }
 .dmatch__link:hover { text-decoration: underline; }
 .day__badge { text-transform: none; }
+
+/* ============================================================
+   Sections : Matchs à venir / Rugby
+   ============================================================ */
+.views { overflow-x: auto; scrollbar-width: none; }
+.views::-webkit-scrollbar { display: none; }
+.view.has-alert small { background: var(--low); color: var(--white); border-radius: 999px; padding: 1px 7px; font-weight: 800; }
+.view.is-on.has-alert small { background: var(--black); color: var(--yellow); }
+.is-rugby .sports { display: none; }
+
+.tab__alert { font-family: var(--text); font-size: 11px; font-weight: 800; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--low); color: var(--white); display: inline-grid; place-items: center; }
+.stat--alert b { color: var(--low); }
+
+/* cases à cocher façon pastilles */
+.check { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.check span { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; color: var(--mute); }
+.check span::before { content: ""; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--line); background: var(--ink-1); flex: none; }
+.check input:checked + span { color: var(--white); }
+.check input:checked + span::before { background: var(--yellow) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; border-color: var(--yellow); }
+.check input:focus-visible + span { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+/* bandeau d'alerte du week-end */
+.alert { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: var(--r); margin-bottom: 18px; border: 1px solid var(--ink-3); background: var(--ink-1); }
+.alert b { display: block; font-family: var(--display); text-transform: uppercase; letter-spacing: .03em; font-size: 20px; line-height: 1.15; }
+.alert p { font-size: 13px; color: var(--soft); margin-top: 4px; }
+.alert__icon { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 18px; }
+.alert__body { min-width: 0; flex: 1; }
+.alert--todo { border-color: rgba(255,77,94,.5); background: linear-gradient(90deg, rgba(255,77,94,.12), transparent 70%), var(--ink-1); }
+.alert--todo .alert__icon { background: var(--low); color: var(--white); }
+.alert--todo b { color: var(--white); }
+.alert--ok { border-color: rgba(61,220,132,.4); }
+.alert--ok .alert__icon { background: var(--ok); color: var(--black); }
+.alert--rugby { border-color: rgba(255,222,0,.45); background: linear-gradient(90deg, rgba(255,222,0,.1), transparent 70%), var(--ink-1); }
+.alert--rugby .alert__icon { background: var(--yellow); }
+.alert--calm b { font-size: 16px; color: var(--soft); }
+.alert__list { list-style: none; margin-top: 12px; display: grid; gap: 6px; }
+.alert__list li { display: grid; grid-template-columns: 78px 118px 1fr; gap: 4px 12px; align-items: baseline; font-size: 13px; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,.35); border-left: 3px solid var(--low); }
+.alert__list li.is-check { border-left-color: var(--mid); }
+.alert__sport { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); }
+.alert__when { color: var(--soft); white-space: nowrap; }
+.alert__teams { font-weight: 700; min-width: 0; }
+.alert__league { grid-column: 3; font-size: 11px; color: var(--mute); }
+@media (max-width: 640px) {
+  .alert { padding: 14px; }
+  .alert b { font-size: 17px; }
+  .alert__list li { grid-template-columns: 1fr; }
+  .alert__league { grid-column: 1; }
+}
+.sync { font-size: 12px; color: var(--mute); margin: -6px 0 6px; }
+
+/* blocs de week-end */
+.day__count { margin-left: auto; font-size: 12px; color: var(--mute); white-space: nowrap; }
+.day--next .day__badge { background: var(--yellow); }
+.day--alert .day__badge { background: var(--low); color: var(--white); }
+@media (max-width: 520px) { .day__head { flex-wrap: wrap; } .day__count { margin-left: 0; width: 100%; } }
+
+/* cartes */
+.amatch { border-left-width: 3px; }
+.amatch--todo { border-left-color: var(--low); }
+.amatch--check { border-left-color: var(--mid); }
+.amatch--done { border-left-color: var(--ok); }
+.amatch--off { border-left-color: var(--line); }
+.amatch--done .team { color: var(--white); }
+.amatch .pts--vs { font-size: 15px; letter-spacing: .04em; color: var(--soft); }
+.pill { flex: none; font-family: var(--text); font-weight: 800; font-size: 10px; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; }
+.pill--todo { background: var(--low); color: var(--white); }
+.pill--check { background: var(--mid); color: var(--black); }
+.pill--done { background: var(--ok); color: var(--black); }
+.pill--off { background: var(--ink-3); color: var(--soft); }
+.check span { white-space: nowrap; }
+@media (max-width: 640px) {
+  .views { display: flex; flex-wrap: wrap; overflow: visible; }
+  .view { flex: 1 1 auto; justify-content: center; }
+}
