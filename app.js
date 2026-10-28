@@ -19,7 +19,7 @@
     aprog: [],             // onglet « MATCH A PROGRAMMER »
     aprogState: "",        // "" | "demo" | "empty"
     checks: {              // cases à cocher des vues « Matchs à venir » et « Rugby »
-      avenir: { todo: true, done: false },
+      avenir: { todo: true, done: true },
       rugby: { todo: true, done: true }
     }
   };
