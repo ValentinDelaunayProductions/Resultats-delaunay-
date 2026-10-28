@@ -11,7 +11,8 @@
     q: "",
     demo: false,
     // "all" = tous les scores, "dplus" = matchs Delaunay+, "avenir" = matchs à programmer, "rugby" = rappel rugby
-    view: /delaunay/i.test(location.hash) ? "dplus" : /a-venir/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : "all",
+    // vue par défaut = premier onglet (Score de Matchs Delaunay+)
+    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : "dplus",
     dplus: [],
     dplusDemo: false,
     conf: "all",           // filtre de confiance (vue Delaunay+)
@@ -22,7 +23,7 @@
       rugby: { todo: true, done: true }
     }
   };
-  const HASH = { all: "", dplus: "#delaunay", avenir: "#a-venir", rugby: "#rugby" };
+  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby" };
 
   // ---------- Utils ----------
   const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
@@ -303,7 +304,7 @@
       }
     });
     $("#heroTitle").innerHTML = {
-      dplus: "Matchs<br><em>Delaunay+</em>", avenir: "Matchs<br><em>à venir.</em>", rugby: "Rappel<br><em>rugby.</em>"
+      dplus: "Scores<br><em>Delaunay+</em>", avenir: "Match à<br><em>programmer.</em>", rugby: "Rappel<br><em>rugby.</em>"
     }[state.view] || "Tous les<br><em>scores.</em>";
     ["dplus", "avenir", "rugby"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
   }

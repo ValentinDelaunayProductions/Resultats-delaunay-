@@ -43,7 +43,7 @@ Pour ajouter un sport, ajoute une ligne dans `config.js` avec le nom exact de l'
 
 ## Section « Matchs Delaunay+ »
 
-Le bouton **Matchs Delaunay+** (lien direct : `…/#delaunay`) affiche l'onglet **scores** du Sheet *MATCHS D+*, rempli par le workflow n8n « Associer scores Delaunay+ ».
+Le bouton **Score de Matchs Delaunay+** (premier onglet, affiché par défaut) affiche l'onglet **scores** du Sheet *MATCHS D+*, rempli par le workflow n8n « Associer scores Delaunay+ ».
 
 - Colonnes lues : `ID`, `DATE`, `SPORT`, `CHAMPIONNAT`, `JOURNÉE`, `MATCH`, `SCORE`, `CONFIANCE`, `MATCH SCORE`, `ID SCORE`, `CORRESPONDANCE`, `LIEN`.
 - Couleur du score selon la confiance : **vert ≥ 85 %**, **orange 60–84 %**, **rouge < 60 %**. Sous chaque match douteux, le site affiche le match des fédérations avec lequel il a été rapproché.
@@ -51,12 +51,12 @@ Le bouton **Matchs Delaunay+** (lien direct : `…/#delaunay`) affiche l'onglet 
 - Si la journée manque (ex. National), elle est reprise de la journée calculée dans « Tous les scores ».
 - Le Sheet *MATCHS D+* doit être partagé en « Tous les utilisateurs disposant du lien » → Lecteur. L'ID et l'onglet se règlent dans `config.js` (`delaunayPlus`).
 
-## Sections « Matchs à venir » et « Rugby »
+## Sections « Match à programmer » et « Rugby »
 
-Ces deux boutons (liens directs : `…/#a-venir` et `…/#rugby`) lisent l'onglet **MATCH A PROGRAMMER** du Sheet *MATCHS à venir D+*. Le workflow n8n « Calendrier matchs à programmer » le remplit à chaque lancement : il croise le calendrier fédéral des matchs diffusés par Delaunay+ avec les matchs déjà programmés sur delaunayplus.com.
+Ces deux boutons (liens directs : `…/#a-programmer` et `…/#rugby`) lisent l'onglet **MATCH A PROGRAMMER** du Sheet *MATCHS à venir D+*. Le workflow n8n « Calendrier matchs à programmer » le remplit à chaque lancement : il croise le calendrier fédéral des matchs diffusés par Delaunay+ avec les matchs déjà programmés sur delaunayplus.com.
 
 - Colonnes lues : `DATE`, `HEURE`, `SPORT`, `CHAMPIONNAT`, `DOMICILE`, `EXTÉRIEUR`, `STATUT`, `SUIVI` (`AUTO` ou `MANUEL`), `PROGRAMMÉ` (`OUI`, `À VÉRIFIER` ou `NON`), `CONFIANCE`, `MATCH D+`, `LIEN D+`, `ID_MATCH`, `MAJ`.
-- **Matchs à venir** : football et basket suivis automatiquement. Deux cases à cocher : *À programmer* et *Déjà programmés*. Un bandeau rouge liste les matchs du **week-end qui arrive** qui ne sont pas encore programmés : du lundi au vendredi, c'est le samedi suivant ; le samedi et le dimanche, c'est le week-end en cours. Les matchs passés disparaissent d'eux-mêmes.
+- **Match à programmer** : football et basket suivis automatiquement. Deux cases à cocher : *À programmer* et *Déjà programmés*. Un bandeau rouge liste les matchs du **week-end qui arrive** qui ne sont pas encore programmés : du lundi au vendredi, c'est le samedi suivant ; le samedi et le dimanche, c'est le week-end en cours. Les matchs passés disparaissent d'eux-mêmes.
 - **Rugby** : simple rappel, car la liste des matchs à diffuser arrive chaque semaine. Le site montre les matchs de rugby programmés sur D+ et les matchs de Normandie du calendrier fédéral, sans alerte rouge.
 - Les clubs suivis se règlent dans n8n : constante `DIFFUSION`, en haut du nœud « CROISER AVEC D+ ».
 - Le Sheet *MATCHS à venir D+* doit être partagé en « Tous les utilisateurs disposant du lien » → Lecteur. L'ID et l'onglet se règlent dans `config.js` (`aProgrammer`).
