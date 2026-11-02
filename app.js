@@ -67,6 +67,36 @@
     return m ? +m[0] : 0;
   }
 
+  // « Régional 1 - Groupe A » -> { league: "Régional 1", poule: "A" } ; une colonne POULE remplie est prioritaire
+  function splitPoule(league, poule) {
+    let lg = clean(league).replace(/\s*-\s*Championnat territorial.*$/i, ""), p = clean(poule);
+    const m = lg.match(/\s*[-–]?\s*(?:GROUPE|POULE)\s+([A-Z0-9]{1,2}|UNIQUE)\s*$/i);
+    if (m) { if (!p) p = m[1]; lg = lg.slice(0, m.index).trim(); }
+    lg = lg.replace(/\s+Cr[ée]dit Agricole$/i, "");
+    p = /^unique$/i.test(p) ? "Unique" : p.toUpperCase();
+    return { league: lg, poule: p };
+  }
+  const pouleTxt = (p) => (!p ? "" : p === "Unique" ? "Poule unique" : "Poule " + p);
+
+  // Exempt / forfait / annulé / reporté
+  function kindOf(statut, home, away) {
+    const s = norm(statut);
+    if (/EXEMPT/.test(s) || norm(home) === "EXEMPT" || norm(away) === "EXEMPT") return "exempt";
+    if (/FORFAIT/.test(s)) return "forfait";
+    if (/ANNUL/.test(s)) return "annule";
+    if (/REPORT/.test(s)) return "reporte";
+    return "";
+  }
+  const KIND = { exempt: "Exempt", forfait: "Forfait", annule: "Annulé", reporte: "Reporté" };
+
+  // Points de vigilance : « a · b · c » -> liste
+  const vigHTML = (v) => v ? `<div class="vig"><ul>${v.split(/\s+·\s+/).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+
+  function teamHTML(name, win) {
+    if (norm(name) === "EXEMPT") return `<div class="team team--bye"><span class="team__mono">—</span><span class="team__name">Exempt (pas d'adversaire)</span></div>`;
+    return `<div class="team ${win ? "is-win" : ""}"><span class="team__mono">${esc(mono(name))}</span><span class="team__name" title="${esc(name)}">${esc(name)}</span></div>`;
+  }
+
   function mono(name) {
     const w = clean(name).replace(/[^A-Za-zÀ-ÿ0-9 ]/g, "").split(" ").filter((x) => x.length > 1 && !/^(FC|AS|US|CA|CC|RC|SC|ES|ESM|AC|PA|\d+)$/i.test(x));
     const base = w.length ? w : clean(name).split(" ");
@@ -80,7 +110,7 @@
     const head = rows[hIdx].map(norm);
     const col = (...names) => head.findIndex((h) => names.includes(h));
     const C = {
-      date: col("DATE"), league: col("LIGUE", "CHAMPIONNAT", "COMPETITION"), day: col("JOURNEE"),
+      date: col("DATE"), league: col("CHAMPIONNAT", "LIGUE", "COMPETITION"), poule: col("POULE"), day: col("JOURNEE"),
       home: col("DOMICILE"), score: col("SCORE"), away: col("EXTERIEUR"),
       id: col("ID MATCH", "ID"), status: col("STATUT")
     };
@@ -88,15 +118,18 @@
       const home = clean(r[C.home]), away = clean(r[C.away]);
       if (!home || !away) return null;
       const score = parseScore(r[C.score]);
-      const rawStatus = norm(r[C.status]);
+      const statut = clean(r[C.status]);
+      const rawStatus = norm(statut);
+      const kind = kindOf(statut, home, away);
       const done = rawStatus.startsWith("TERMIN") || (!rawStatus && !!score);
+      const lp = splitPoule(r[C.league], C.poule >= 0 ? r[C.poule] : "");
       return {
         id: clean(r[C.id]) || `${home}-${away}`,
         date: parseDate(r[C.date]),
-        league: clean(r[C.league]) || "Autres",
+        league: lp.league || "Autres", poule: lp.poule,
         day: /\d/.test(r[C.day] || "") ? clean(r[C.day]) : "",   // ignore "-", "N/A", etc.
-        home, away, score,
-        done: done && !!score
+        home, away, score, kind, statut,
+        done: (done && !!score) || !!kind
       };
     }).filter(Boolean);
   }
@@ -173,15 +206,18 @@
       const conf = parseFloat(String(g(r, "CONFIANCE")).replace(",", ".").replace("%", ""));
       const score = parseScore(g(r, "SCORE"));
       const sportTxt = norm(g(r, "SPORT"));
-      const sport = (CFG.sports.find((s) => sportTxt.includes(norm(s.label))) || {}).key || "";
+      const sport = (CFG.sports.find((s) => sportTxt.includes(norm(s.label))) || {}).key || (/FUTSAL/.test(sportTxt) ? "football" : "");
+      const lp = splitPoule(g(r, "CHAMPIONNAT"), g(r, "POULE"));
+      const scoreTxt = g(r, "SCORE");
       return {
         id: g(r, "ID") || match, date: parseDate(g(r, "DATE")), sport,
-        league: g(r, "CHAMPIONNAT") || "Championnat inconnu",
+        league: lp.league || "Autres", poule: lp.poule,
         day: /\d/.test(g(r, "JOURNEE")) ? g(r, "JOURNEE") : "",
         home: home || match, away: away || "", score,
+        forfait: /FORFAIT/i.test(scoreTxt),
         conf: isNaN(conf) ? 0 : conf <= 1 ? Math.round(conf * 100) : Math.round(conf),
         matchedWith: g(r, "MATCH SCORE"), scoreId: g(r, "ID SCORE"),
-        note: g(r, "CORRESPONDANCE"), link: g(r, "LIEN")
+        note: g(r, "CORRESPONDANCE"), vig: g(r, "VIGILANCE"), link: g(r, "LIEN")
       };
     }).filter(Boolean);
   }
@@ -221,14 +257,19 @@
       const p = norm(g(r, "PROGRAMME"));
       const heure = (g(r, "HEURE").match(/^(\d{1,2})[:hH](\d{2})/) || []);
       const conf = parseFloat(g(r, "CONFIANCE").replace(",", "."));
+      const lp = splitPoule(g(r, "CHAMPIONNAT"), g(r, "POULE"));
+      const statut = g(r, "STATUT");
+      const kind = kindOf(statut, home, away);
       return {
         id: g(r, "ID_MATCH") || `${home}-${away}-${g(r, "DATE")}`,
         date, heure: heure.length ? `${heure[1].padStart(2, "0")}:${heure[2]}` : "",
         t: date.getTime() + (heure.length ? (+heure[1] * 60 + +heure[2]) * 60000 : 0),
-        sport, futsal: /FUTSAL/.test(sp), league: g(r, "CHAMPIONNAT") || "Championnat",
-        home, away, statut: g(r, "STATUT"), manuel: norm(g(r, "SUIVI")) === "MANUEL",
-        prog: p === "OUI" ? "done" : p.startsWith("A VERIF") ? "check" : "todo",
-        conf: isNaN(conf) ? null : Math.round(conf), dpTitle: g(r, "MATCH D+"), dpLink: g(r, "LIEN D+"), maj: g(r, "MAJ")
+        sport, futsal: /FUTSAL/.test(sp), league: lp.league || "Championnat", poule: lp.poule,
+        fem: /^F/.test(norm(g(r, "GENRE"))) || /FEMININ|\(F\)/.test(norm(g(r, "CHAMPIONNAT"))),
+        home, away, statut, kind, manuel: norm(g(r, "SUIVI")) === "MANUEL",
+        prog: p === "OUI" ? "done" : p.startsWith("A VERIF") ? "check" : p.startsWith("SANS OBJET") || (kind && kind !== "reporte") ? "none" : "todo",
+        conf: isNaN(conf) ? null : Math.round(conf), dpTitle: g(r, "MATCH D+"), dpLink: g(r, "LIEN D+"),
+        vig: g(r, "VIGILANCE"), maj: g(r, "MAJ")
       };
     }).filter(Boolean).sort((a, b) => a.t - b.t);
   }
@@ -245,7 +286,8 @@
     const shift = { 1: 5, 2: 4, 3: 3, 4: 2, 5: 1, 6: 0, 0: -1 }[d.getDay()];
     return periodKey(addDays(d, shift));
   }
-  const isTodo = (m) => m.prog !== "done" && !/REPORT|ANNUL/.test(norm(m.statut));
+  const isTodo = (m) => m.prog !== "done" && m.prog !== "none" && !/REPORT|ANNUL/.test(norm(m.statut));
+  const isSure = (d) => d.conf >= 85 && !d.vig;
 
   const confLevel = (c) => (c >= 85 ? "ok" : c >= 60 ? "mid" : "low");
   const confLabel = { ok: "Sûr", mid: "À vérifier", low: "Douteux" };
@@ -303,10 +345,17 @@
         small.textContent = state.aprog.filter((m) => m.sport === "rugby" && periodKey(m.date) === wk).length;
       }
     });
-    $("#heroTitle").innerHTML = {
-      dplus: "Scores<br><em>Delaunay+</em>", avenir: "Match à<br><em>programmer.</em>", rugby: "Rappel<br><em>rugby.</em>"
-    }[state.view] || "Tous les<br><em>scores.</em>";
+    const intro = {
+      dplus: ["Score de Matchs Delaunay+", "Chaque match diffusé sur Delaunay+ avec son score officiel, rapproché automatiquement des résultats des fédérations. Les points de vigilance signalent un écart de championnat, de poule ou d'équipe."],
+      avenir: ["Match à programmer", "Le calendrier fédéral des clubs diffusés, croisé avec les matchs déjà programmés sur delaunayplus.com. En rouge : ce qui manque pour le week-end qui arrive."],
+      rugby: ["Rugby", "Rappel hebdomadaire : la liste des matchs de rugby à diffuser arrive chaque semaine. Matchs de Normandie du calendrier fédéral et matchs déjà programmés sur Delaunay+."],
+      all: ["Tous les scores", "Les résultats de tous les championnats suivis, rangés par championnat, poule et journée. Les exempts et forfaits sont signalés."]
+    }[state.view];
+    $("#heroTitle").textContent = intro[0];
+    $("#heroDesc").textContent = intro[1];
     ["dplus", "avenir", "rugby"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
+    const on = document.querySelector(".nav__item.is-on");
+    if (on && on.parentElement.scrollWidth > on.parentElement.clientWidth) on.parentElement.scrollLeft = on.offsetLeft - 16;
   }
 
   function renderSeg() {
@@ -325,24 +374,29 @@
     $("#seg").innerHTML = opts.map(([k, v, l]) => `<button class="seg__btn ${cur === v ? "is-on" : ""}" data-${k}="${v}">${l}</button>`).join("");
   }
 
+  const statsHTML = (arr) => arr.map(([v, l, cls]) => `<div class="stat ${cls ? "stat--" + cls : ""}"><b>${v}</b><span>${l}</span></div>`).join("");
+
   function renderDplusStats(all) {
-    const ok = all.filter((d) => d.conf >= 85).length;
-    $("#stats").innerHTML = [
-      [all.length, "Matchs D+"],
-      [ok, "Sûrs"],
-      [all.length - ok, "À vérifier"]
-    ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+    const ok = all.filter(isSure).length;
+    const low = all.filter((d) => d.conf < 85).length;
+    const vig = all.filter((d) => d.vig).length;
+    $("#stats").innerHTML = statsHTML([
+      [all.length, "Matchs D+", "main"],
+      [ok, "Sûrs", "ok"],
+      [low, "À vérifier", low ? "alert" : ""],
+      [vig, "Vigilance", vig ? "warn" : ""]
+    ]);
   }
 
   function renderDplus(all) {
     const q = norm(state.q);
     const list = all.filter((d) =>
       (state.league === "all" || d.league === state.league) &&
-      (state.conf === "all" || (state.conf === "ok" ? d.conf >= 85 : d.conf < 85)) &&
+      (state.conf === "all" || (state.conf === "ok" ? isSure(d) : !isSure(d))) &&
       (!q || norm(d.home + " " + d.away + " " + d.matchedWith).includes(q))
     );
     let html = state.dplusDemo ? `<div class="notice">L'onglet « scores » du Sheet MATCHS D+ n'est pas encore accessible : affichage de données d'exemple. Voir le README.</div>` : "";
-    html += `<div class="legend"><span class="legend__item legend__item--ok">≥ 85 % Sûr</span><span class="legend__item legend__item--mid">60 – 84 % À vérifier</span><span class="legend__item legend__item--low">&lt; 60 % Douteux</span></div>`;
+    html += `<div class="legend"><span class="legend__item legend__item--ok">≥ 85 % Sûr</span><span class="legend__item legend__item--mid">60 – 84 % À vérifier</span><span class="legend__item legend__item--low">&lt; 60 % Douteux</span><span class="legend__item legend__item--vig">Point de vigilance</span></div>`;
     if (!list.length) {
       $("#content").innerHTML = html + `<div class="empty"><b>Aucun match</b>Rien ne correspond à ces filtres pour le moment.</div>`;
       return;
@@ -350,13 +404,13 @@
     // Regroupé par date, du plus récent au plus ancien
     const byDate = [...groupBy(list, (d) => (d.date ? d.date.getTime() : 0)).entries()].sort((a, b) => b[0] - a[0]);
     html += byDate.map(([t, items]) => {
-      items.sort((a, b) => a.conf - b.conf);   // les plus douteux en premier
+      items.sort((a, b) => (isSure(a) - isSure(b)) || (a.conf - b.conf));   // les plus douteux en premier
       const label = t ? new Date(t).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Date inconnue";
-      const doubt = items.filter((d) => d.conf < 85).length;
-      return `<div class="day">
-        <div class="day__head"><span class="day__badge">${esc(label)}</span><span class="day__date">${items.length} match${items.length > 1 ? "s" : ""}${doubt ? ` · ${doubt} à vérifier` : ""}</span></div>
-        <div class="grid">${items.map(dcard).join("")}</div>
-      </div>`;
+      const doubt = items.filter((d) => !isSure(d)).length;
+      return `<section class="league">
+        <header class="league__head"><h2 class="league__name">${esc(label)}</h2><span class="league__count">${items.length} match${items.length > 1 ? "s" : ""}${doubt ? ` · ${doubt} à vérifier` : ""}</span></header>
+        <div class="day"><div class="grid">${items.map(dcard).join("")}</div></div>
+      </section>`;
     }).join("");
     $("#content").innerHTML = html;
   }
@@ -366,18 +420,19 @@
     const [h, a] = d.score || [];
     const has = !!d.score;
     const hw = has && h > a, aw = has && a > h;
-    const team = (name, win) => `<div class="team ${win ? "is-win" : ""}"><span class="team__mono">${esc(mono(name))}</span><span class="team__name" title="${esc(name)}">${esc(name)}</span></div>`;
-    const pts = (v, win) => has ? `<div class="pts pts--${lvl} ${win ? "is-win" : (hw || aw) ? "is-lose" : ""}">${v}</div>` : `<div class="pts pts--vs">—</div>`;
-    const meta = [d.day, d.league].filter(Boolean).map(esc).join(" · ");
+    const pts = (v, win) => has ? `<div class="pts pts--${lvl} ${win ? "is-win" : (hw || aw) ? "is-lose" : ""}">${v}</div>` : `<div class="pts pts--vs">${d.forfait ? "FFT" : "—"}</div>`;
+    const meta = [d.league, pouleTxt(d.poule), d.day].filter(Boolean).map(esc).join(" · ");
     const showMatch = d.matchedWith && lvl !== "ok";
-    return `<article class="match dmatch dmatch--${lvl}" id="d-${esc(d.id)}">
-      <div class="match__meta"><span class="dmatch__league" title="${esc(d.league)}">${meta}</span><span class="conf conf--${lvl}" title="${esc(d.note)}">${d.conf} %</span></div>
-      ${team(d.home, hw)}${pts(h, hw)}
-      ${team(d.away, aw)}${pts(a, aw)}
-      <div class="dmatch__foot">
-        ${showMatch ? `<span class="dmatch__check">Rapproché avec <b>${esc(d.matchedWith)}</b>${d.note && !/^S[uû]r$/i.test(d.note) ? ` — ${esc(d.note)}` : ""}</span>`
-                    : `<span class="dmatch__check dmatch__check--ok">${has ? confLabel[lvl] : esc(d.note || "Score pas encore publié")}</span>`}
-        ${d.link ? `<a class="dmatch__link" href="${esc(d.link)}" target="_blank" rel="noopener">Delaunay+ ↗</a>` : ""}
+    return `<article class="match is-${lvl}" id="d-${esc(d.id)}">
+      <div class="match__meta"><span title="${esc(d.league)}">${meta}</span><span class="pill pill--${lvl}" title="${esc(d.note)}">${d.conf} %</span></div>
+      ${teamHTML(d.home, hw)}${pts(h, hw)}
+      ${teamHTML(d.away, aw)}${pts(a, aw)}
+      ${vigHTML(d.vig)}
+      <div class="match__foot">
+        ${d.forfait ? `<span><b>${esc(d.note || "Forfait")}</b></span>`
+          : showMatch ? `<span>Rapproché avec <b>${esc(d.matchedWith)}</b>${d.note && !/^S[uû]r$/i.test(d.note) ? ` — ${esc(d.note)}` : ""}</span>`
+          : `<span>${has ? confLabel[lvl] : esc(d.note || "Score pas encore publié")}</span>`}
+        ${d.link ? `<a class="match__link" href="${esc(d.link)}" target="_blank" rel="noopener">Delaunay+ ↗</a>` : ""}
       </div>
     </article>`;
   }
@@ -395,6 +450,7 @@
     }
     $("#sportTabs").innerHTML = CFG.sports.map((s) => {
       const n = state.view === "dplus" ? state.dplus.filter((d) => d.sport === s.key).length : (state.data[s.key] || []).length;
+      if (!n && s.key !== state.sport) return "";
       return `<button class="tab ${s.key === state.sport ? "is-on" : ""}" role="tab" aria-selected="${s.key === state.sport}" data-sport="${s.key}">${esc(s.label)}<small>${n}</small></button>`;
     }).join("");
   }
@@ -413,7 +469,14 @@
           [all.filter((m) => isTodo(m) && periodKey(m.date) === wk).length, "Ce week-end"],
           [all.filter((m) => m.prog === "done").length, "Programmés"]
         ];
-    $("#stats").innerHTML = stats.map(([v, l], i) => `<div class="stat ${state.view === "avenir" && i === 1 && v ? "stat--alert" : ""}"><b>${v}</b><span>${l}</span></div>`).join("");
+    if (state.view === "avenir") {
+      stats[0][2] = "main";
+      if (stats[1][0]) stats[1][2] = "alert";
+      stats[2][2] = "ok";
+      const vig = all.filter((m) => m.vig).length;
+      if (vig) stats.push([vig, "Vigilance", "warn"]);
+    }
+    $("#stats").innerHTML = statsHTML(stats);
   }
 
   const wkLabel = (key) => {
@@ -457,7 +520,8 @@
       <div class="alert__icon" aria-hidden="true">!</div>
       <div class="alert__body"><b>${todo.length ? `${todo.length} match${todo.length > 1 ? "s" : ""} du week-end pas encore programmé${todo.length > 1 ? "s" : ""}` : "Matchs du week-end à vérifier"}</b>
       <p>Week-end ${esc(label)}${check.length ? ` · ${check.length} à vérifier (rapprochement incertain)` : ""}</p>
-      <ul class="alert__list">${todo.map((m) => li(m, "")).join("")}${check.map((m) => li(m, "is-check")).join("")}</ul></div>
+      <ul class="alert__list">${[...todo.map((m) => li(m, "")), ...check.map((m) => li(m, "is-check"))].slice(0, 8).join("")}</ul>
+      ${todo.length + check.length > 8 ? `<p class="alert__more">+ ${todo.length + check.length - 8} autre${todo.length + check.length - 8 > 1 ? "s" : ""} : voir le bloc « Ce week-end » ci-dessous.</p>` : ""}</div>
     </div>`;
   }
 
@@ -498,33 +562,37 @@
   function acard(m) {
     const report = /REPORT|ANNUL/.test(norm(m.statut));
     const rugby = state.view === "rugby";
-    const lvl = report ? "off" : m.prog === "done" ? "done" : m.prog === "check" ? "check" : rugby ? "off" : "todo";
+    const lvl = report || m.prog === "none" ? "off" : m.prog === "done" ? "done" : m.prog === "check" ? "check" : rugby ? "off" : "todo";
     const pill = report ? m.statut
+      : m.prog === "none" ? (KIND[m.kind] || "Sans objet")
       : m.prog === "done" ? "Programmé"
       : m.prog === "check" ? `À vérifier${m.conf != null ? ` · ${m.conf} %` : ""}`
       : rugby ? "Pas programmé" : "À programmer";
-    const team = (name) => `<div class="team"><span class="team__mono">${esc(mono(name))}</span><span class="team__name" title="${esc(name)}">${esc(name)}</span></div>`;
-    const foot = m.prog === "check" && m.dpTitle ? `<span class="dmatch__check">Rapproché avec <b>${esc(m.dpTitle)}</b></span>`
-      : m.prog === "done" && m.dpTitle && norm(m.dpTitle) !== norm(m.home + " / " + m.away) ? `<span class="dmatch__check">Sur D+ : ${esc(m.dpTitle)}</span>`
-      : `<span class="dmatch__check">${esc(m.league)}</span>`;
-    return `<article class="match amatch amatch--${lvl}" id="a-${esc(m.id)}">
-      <div class="match__meta"><span>${esc(whenShort(m))}</span><span class="pill pill--${lvl}">${esc(pill)}</span></div>
-      ${team(m.home)}<div class="pts pts--vs">${m.heure ? esc(m.heure) : "—"}</div>
-      ${team(m.away)}<div></div>
-      <div class="dmatch__foot">${foot}${m.dpLink ? `<a class="dmatch__link" href="${esc(m.dpLink)}" target="_blank" rel="noopener">Delaunay+ ↗</a>` : ""}</div>
+    const champ = [m.league, pouleTxt(m.poule)].filter(Boolean).join(" · ");
+    const foot = m.kind === "forfait" ? `<span><b>${esc(m.statut)}</b></span>`
+      : m.prog === "check" && m.dpTitle ? `<span>Rapproché avec <b>${esc(m.dpTitle)}</b></span>`
+      : m.prog === "done" && m.dpTitle && norm(m.dpTitle) !== norm(m.home + " / " + m.away) ? `<span>Sur D+ : ${esc(m.dpTitle)}</span>`
+      : `<span>${esc(champ)}</span>`;
+    return `<article class="match is-${lvl}" id="a-${esc(m.id)}">
+      <div class="match__meta"><span>${esc(whenShort(m))}${m.fem ? `<span class="pill pill--fem">Féminin</span>` : ""}</span><span class="pill pill--${lvl}">${esc(pill)}</span></div>
+      ${teamHTML(m.home)}<div class="pts pts--vs">${m.heure ? esc(m.heure) : "—"}</div>
+      ${teamHTML(m.away)}<div></div>
+      ${vigHTML(m.vig)}
+      <div class="match__foot">${foot}${m.dpLink ? `<a class="match__link" href="${esc(m.dpLink)}" target="_blank" rel="noopener">Delaunay+ ↗</a>` : ""}</div>
     </article>`;
   }
 
   function renderStats(all) {
-    const done = all.filter((m) => m.done);
+    const done = all.filter((m) => m.done && m.score && !m.kind);
     const goals = done.reduce((a, m) => a + m.score[0] + m.score[1], 0);
-    const upcoming = all.length - done.length;
+    const special = all.filter((m) => m.kind).length;
     const avg = done.length ? (goals / done.length).toFixed(1).replace(".", ",") : "0";
-    $("#stats").innerHTML = [
-      [done.length, "Matchs joués"],
-      [upcoming, "À venir"],
+    $("#stats").innerHTML = statsHTML([
+      [done.length, "Matchs joués", "main"],
+      [new Set(all.map((m) => m.league)).size, "Championnats"],
+      [special, "Exempts / forfaits", special ? "warn" : ""],
       [avg, "Pts / match"]
-    ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+    ]);
   }
 
   function renderChips(all) {
@@ -554,15 +622,23 @@
     const byLeague = groupBy(list, (m) => m.league);
     const leagues = [...byLeague.keys()].sort((a, b) => a.localeCompare(b, "fr"));
 
+    const blocksOf = (ms) => [...groupBy(ms, blockKey).entries()]
+      .map(([key, items]) => ({ key, items, t: blockTime(items) }))
+      // Du plus futur au plus passé ; « date à fixer » en tête
+      .sort((a, b) => (b.t - a.t) || (dayNum(b.items[0].day) - dayNum(a.items[0].day)))
+      .map(dayBlock).join("");
+
     html += leagues.map((lg) => {
       const ms = byLeague.get(lg);
-      const blocks = [...groupBy(ms, blockKey).entries()]
-        .map(([key, items]) => ({ key, items, t: blockTime(items) }))
-        // Du plus futur au plus passé ; « date à fixer » en tête
-        .sort((a, b) => (b.t - a.t) || (dayNum(b.items[0].day) - dayNum(a.items[0].day)));
+      const byPoule = groupBy(ms, (m) => m.poule || "");
+      const poules = [...byPoule.keys()].sort((a, b) => a.localeCompare(b, "fr"));
+      const split = poules.length > 1 || (poules[0] && poules[0] !== "Unique");
+      const body = split
+        ? poules.map((p) => `<div class="poule"><div class="poule__head"><b>${esc(p ? pouleTxt(p) : "Poule ?")}</b><span>${byPoule.get(p).length} match${byPoule.get(p).length > 1 ? "s" : ""}</span></div>${blocksOf(byPoule.get(p))}</div>`).join("")
+        : blocksOf(ms);
       return `<section class="league">
-        <header class="league__head"><h2 class="league__name">${esc(lg)}</h2><span class="league__count">${ms.length} match${ms.length > 1 ? "s" : ""}</span></header>
-        ${blocks.map(dayBlock).join("")}
+        <header class="league__head"><h2 class="league__name">${esc(lg)}</h2><span class="league__count">${split ? `${poules.length} poule${poules.length > 1 ? "s" : ""} · ` : ""}${ms.length} match${ms.length > 1 ? "s" : ""}</span></header>
+        ${body}
       </section>`;
     }).join("");
 
@@ -593,7 +669,7 @@
     const refDate = parseDate(ref.date || "");
     if (!refDate) return matches;
     const refKey = periodKey(refDate), refNum = +ref.numero || 1;
-    groupBy(matches, (m) => m.league).forEach((ms) => {
+    groupBy(matches, (m) => m.league + "|" + (m.poule || "")).forEach((ms) => {
       if (ms.some((m) => m.day)) return;                       // le Sheet fournit déjà les journées
       const keys = [...new Set(ms.filter((m) => m.date).map((m) => periodKey(m.date)))].sort();
       const refIdx = keys.filter((k) => k < refKey).length;    // position du week-end de référence
@@ -625,7 +701,7 @@
     let badge, label = "";
 
     if (key.startsWith("J:")) {
-      badge = key.slice(2);
+      badge = key.slice(2).replace(/^J(\d+\s*(?:e|è|ème|er)\b)/i, "$1");
       if (dates.length) {
         const newest = dates[0], oldest = dates[dates.length - 1];
         const f = (d) => fmtDay(d, { weekday: "short", day: "numeric", month: "long" });
@@ -658,14 +734,19 @@
 
   function card(m) {
     const [h, a] = m.score || [];
-    const hw = m.done && h > a, aw = m.done && a > h;
-    const date = m.date ? m.date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) : "Date à fixer";
-    const team = (name, win) => `<div class="team ${win ? "is-win" : ""}"><span class="team__mono">${esc(mono(name))}</span><span class="team__name" title="${esc(name)}">${esc(name)}</span></div>`;
-    const pts = (v, win) => m.done ? `<div class="pts ${win ? "is-win" : ""}">${v}</div>` : `<div class="pts pts--vs">—</div>`;
-    return `<article class="match" id="m-${esc(m.id)}">
-      <div class="match__meta"><span>${date}</span><span class="status status--${m.done ? "done" : "upcoming"}">${m.done ? "Terminé" : "À venir"}</span></div>
-      ${team(m.home, hw)}${pts(h, hw)}
-      ${team(m.away, aw)}${pts(a, aw)}
+    const has = !!m.score;
+    const hw = has && h > a, aw = has && a > h;
+    const date = m.date ? m.date.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" }) : "Date à fixer";
+    const fft = (name) => m.kind === "forfait" && (norm(m.statut).includes(norm(name)) || !/:/.test(m.statut));
+    const pts = (v, win, name) => has ? `<div class="pts ${win ? "is-win" : ""}">${v}</div>` : `<div class="pts pts--vs">${fft(name) ? "FFT" : "—"}</div>`;
+    const pill = m.kind ? `<span class="pill pill--off">${KIND[m.kind]}</span>`
+      : m.done ? `<span class="pill pill--plain">Terminé</span>` : `<span class="pill pill--upcoming">À venir</span>`;
+    const detail = m.kind === "forfait" && m.statut && norm(m.statut) !== "FORFAIT" ? `<div class="match__foot"><span><b>${esc(m.statut)}</b></span></div>` : "";
+    return `<article class="match ${m.kind ? "is-off" : m.done ? "" : "is-check"}" id="m-${esc(m.id)}">
+      <div class="match__meta"><span>${date}</span>${pill}</div>
+      ${teamHTML(m.home, hw)}${pts(h, hw, m.home)}
+      ${teamHTML(m.away, aw)}${norm(m.away) === "EXEMPT" ? "<div></div>" : pts(a, aw, m.away)}
+      ${detail}
     </article>`;
   }
 

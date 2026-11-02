@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Résultats — Delaunay+</title>
-  <meta name="description" content="Tous les résultats des championnats suivis par Delaunay+">
+  <meta name="description" content="Scores, matchs à programmer et résultats des championnats suivis par Delaunay+">
   <meta name="theme-color" content="#000000">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,42 +13,42 @@
 </head>
 <body>
   <header class="top">
-    <div class="wrap top__inner">
+    <div class="wrap top__bar">
       <a class="brand" href="./" aria-label="Delaunay+ — accueil">DELAUNAY<span>+</span></a>
-      <span class="top__tag">Résultats</span>
+      <span class="top__tag">Centre de suivi</span>
       <span class="top__status" id="status" aria-live="polite"></span>
     </div>
+    <nav class="wrap nav" role="tablist" aria-label="Sections">
+      <button class="nav__item is-on" role="tab" data-view="dplus">Score de Matchs Delaunay+<small>0</small></button>
+      <button class="nav__item" role="tab" data-view="avenir">Match à programmer<small>0</small></button>
+      <button class="nav__item" role="tab" data-view="rugby">Rugby<small>0</small></button>
+      <button class="nav__item" role="tab" data-view="all">Tous les scores</button>
+    </nav>
   </header>
 
-  <section class="hero">
-    <div class="wrap">
-      <p class="hero__kicker" id="heroKicker">Saison 2026 — 2027</p>
-      <h1 class="hero__title" id="heroTitle">Tous les<br><em>scores.</em></h1>
-      <div class="views" role="tablist" aria-label="Sections">
-        <button class="view is-on" role="tab" data-view="dplus">Score de Matchs Delaunay+<small>0</small></button>
-        <button class="view" role="tab" data-view="avenir">Match à programmer<small>0</small></button>
-        <button class="view" role="tab" data-view="rugby">Rugby<small>0</small></button>
-        <button class="view" role="tab" data-view="all">Tous les scores</button>
+  <main class="wrap main">
+    <section class="intro">
+      <div class="intro__text">
+        <p class="intro__kicker">Saison 2026 — 2027</p>
+        <h1 class="intro__title" id="heroTitle">Score de Matchs Delaunay+</h1>
+        <p class="intro__desc" id="heroDesc"></p>
       </div>
       <div class="stats" id="stats"></div>
-    </div>
-  </section>
+    </section>
 
-  <nav class="sports" aria-label="Sports">
-    <div class="wrap sports__inner" id="sportTabs" role="tablist"></div>
-  </nav>
-
-  <main class="wrap main">
-    <div class="toolbar">
-      <div class="chips" id="leagueChips" aria-label="Championnats"></div>
-      <div class="toolbar__right">
-        <div class="seg" role="group" aria-label="Filtre" id="seg"></div>
-        <label class="search">
-          <span class="sr-only">Rechercher une équipe</span>
-          <input id="search" type="search" placeholder="Rechercher une équipe…" autocomplete="off">
-        </label>
+    <section class="filters" aria-label="Filtres">
+      <div class="filters__top">
+        <div class="tabs" id="sportTabs" role="tablist" aria-label="Sports"></div>
+        <div class="filters__tools">
+          <div class="seg" role="group" aria-label="Filtre" id="seg"></div>
+          <label class="search">
+            <span class="sr-only">Rechercher une équipe</span>
+            <input id="search" type="search" placeholder="Rechercher une équipe…" autocomplete="off">
+          </label>
+        </div>
       </div>
-    </div>
+      <div class="chips" id="leagueChips" aria-label="Championnats"></div>
+    </section>
 
     <div id="content" class="content">
       <div class="loading"><span></span><span></span><span></span></div>
