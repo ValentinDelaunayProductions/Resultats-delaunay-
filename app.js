@@ -93,7 +93,7 @@
   const vigHTML = (v) => v ? `<div class="vig"><ul>${v.split(/\s+·\s+/).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
 
   function teamHTML(name, win) {
-    if (norm(name) === "EXEMPT") return `<div class="team team--bye"><span class="team__mono">—</span><span class="team__name">Exempt (pas d'adversaire)</span></div>`;
+    if (!clean(name) || norm(name) === "EXEMPT") return `<div class="team team--bye"><span class="team__mono">—</span><span class="team__name">Exempt (pas d'adversaire)</span></div>`;
     return `<div class="team ${win ? "is-win" : ""}"><span class="team__mono">${esc(mono(name))}</span><span class="team__name" title="${esc(name)}">${esc(name)}</span></div>`;
   }
 
