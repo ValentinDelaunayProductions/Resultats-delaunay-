@@ -9,7 +9,8 @@ Site statique qui affiche les scores de tous les championnats, lus directement d
 | `index.html` | Structure de la page |
 | `style.css` | Charte Delaunay+ (noir / jaune #ffde00 / blanc) |
 | `app.js` | Lecture du Sheet, filtres, affichage |
-| `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement |
+| `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement, URL du Blog |
+| `apps-script/Blog.gs` | Passerelle à coller dans le Sheet des articles (lecture + boutons du Blog) |
 
 ## 1. Rendre le Sheet lisible par le site
 
@@ -63,6 +64,37 @@ Ces deux boutons (liens directs : `…/#a-programmer` et `…/#rugby`) lisent l'
 - **Rugby** : simple rappel, car la liste des matchs à diffuser arrive chaque semaine. Le site montre les matchs de rugby programmés sur D+ et les matchs de Normandie du calendrier fédéral, sans alerte rouge.
 - Les clubs suivis se règlent dans l'onglet **CLUBS DIFFUSÉS** du Sheet *LIENS POUR AUTOMATISATION D+* (une ligne par équipe : sport, championnat, poule, genre, nom fédération, noms Delaunay+ séparés par `|`, actif). Plus besoin de toucher au workflow.
 - Le Sheet *MATCHS à venir D+* doit être partagé en « Tous les utilisateurs disposant du lien » → Lecteur. L'ID et l'onglet se règlent dans `config.js` (`aProgrammer`).
+
+## Section « Blog »
+
+Le bouton **Blog** (lien direct : `…/#blog`) affiche les articles rédigés par le workflow n8n « B. Sélection & rédaction » dans l'onglet **Articles** du Sheet *Automatisation Article blog Delaunay+*.
+
+- Articles rangés par jour, **du plus récent au plus ancien**. Chaque carte montre le **sport** (pastille de couleur), le club, l'heure, le titre et le chapô ; « Lire l'article » déplie le texte complet et les liens vers les sources.
+- Filtres : un onglet par sport (*Handball féminin* est rangé dans *Handball*, etc.), un filtre par club, et *Tous / À trier / Validés / Rejetés*.
+- Trois boutons par article, enregistrés directement dans la colonne `Statut` du Sheet :
+  - **vert « Publier »** → `Validé` : publiable sur Delaunay+ ;
+  - **orange « À revoir »** → `À revoir` : on ne sait pas encore ;
+  - **rouge « Rejeter »** → `Rejeté` : on ne publie pas.
+  
+  Le prénom de la personne (demandé une fois, mémorisé dans le navigateur) et l'heure sont notés dans `Relu par`.
+- **Copier le texte** met titre, chapô, corps et sources dans le presse-papiers, prêts à coller sur Delaunay+.
+- Le workflow n8n supprime du Sheet les articles de plus de 7 jours : ils disparaissent aussi du site.
+
+### Brancher le Blog au Sheet (une seule fois)
+
+Le site ne peut pas écrire dans un Google Sheet tout seul : une petite passerelle **Apps Script** s'en charge. Le Sheet des articles n'a **pas** besoin d'être partagé publiquement.
+
+1. Ouvre le Sheet *Automatisation Article blog Delaunay+* → **Extensions → Apps Script**.
+2. Remplace le contenu de `Code.gs` par celui de [`apps-script/Blog.gs`](apps-script/Blog.gs), puis enregistre.
+3. **Déployer → Nouveau déploiement** → type **Application web** → *Exécuter en tant que* : **Moi** → *Qui a accès* : **Tout le monde** → Déployer, puis autorise l'accès à ton compte.
+4. Copie l'URL qui se termine par `/exec` et colle-la dans `config.js` → `blog.apiUrl`.
+5. Pousse `config.js` sur GitHub : le Blog affiche les vrais articles.
+
+Tant que `blog.apiUrl` est vide, le Blog affiche des articles d'exemple et les boutons ne modifient rien.
+
+> Si tu modifies `Blog.gs` plus tard : **Déployer → Gérer les déploiements → ✏️ → Version : Nouvelle version**, sinon l'ancienne version reste en ligne (l'URL ne change pas).
+>
+> Sécurité : l'URL `/exec` est visible dans `config.js` (dépôt public). Quelqu'un qui la trouverait pourrait lire les articles et changer un statut, rien d'autre : le script n'accepte que les statuts `À relire`, `Validé`, `À revoir`, `Rejeté` et `Publié`, et ne touche à aucune autre colonne.
 
 ## 3. Mise en ligne sur GitHub Pages
 

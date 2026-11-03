@@ -12,7 +12,13 @@
     demo: false,
     // "all" = tous les scores, "dplus" = matchs Delaunay+, "avenir" = matchs à programmer, "rugby" = rappel rugby
     // vue par défaut = premier onglet (Score de Matchs Delaunay+)
-    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : "dplus",
+    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : /blog/i.test(location.hash) ? "blog" : "dplus",
+    blog: [],              // onglet « Articles » du Sheet « Automatisation Article blog »
+    blogState: "",         // "" | "demo" | "error"
+    blogStat: "all",       // filtre de statut (Tous / À trier / Validés / Rejetés)
+    blogSport: "all",      // filtre de sport
+    blogOpen: new Set(),   // articles dépliés (conservés lors du rafraîchissement)
+    blogPending: {},       // { id: statut } en cours d'envoi
     dplus: [],
     dplusDemo: false,
     conf: "all",           // filtre de confiance (vue Delaunay+)
@@ -23,7 +29,7 @@
       rugby: { todo: true, done: true }
     }
   };
-  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby" };
+  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby", blog: "#blog" };
 
   // ---------- Utils ----------
   const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
@@ -171,6 +177,13 @@
       state.aprog = CFG.demoFallback && window.DEMO_APROG ? toAprog(window.DEMO_APROG) : [];
       state.aprogState = "demo";
     }
+    try {
+      state.blog = await fetchBlog();
+      state.blogState = "";
+    } catch (e) {
+      state.blog = CFG.demoFallback && window.DEMO_BLOG ? toBlog(window.DEMO_BLOG()) : [];
+      state.blogState = (CFG.blog && CFG.blog.apiUrl) ? "error" : "demo";
+    }
     if (!state.sport || !pool(state.view)(state.sport)) {
       const has = pool(state.view);
       const first = CFG.sports.find((s) => has(s.key)) || CFG.sports[0];
@@ -277,7 +290,7 @@
   // Les sports qui ont des matchs dans la vue courante
   const pool = (view) => view === "dplus" ? (k) => state.dplus.some((d) => d.sport === k)
     : view === "avenir" ? (k) => state.aprog.some((m) => !m.manuel && m.sport === k)
-    : view === "rugby" ? () => true
+    : view === "rugby" || view === "blog" ? () => true
     : (k) => (state.data[k] || []).length;
 
   // Week-end qui arrive : du lundi au vendredi -> le samedi suivant ; samedi/dimanche -> ce week-end
@@ -303,6 +316,13 @@
     renderViews();
     renderTabs();
     renderSeg();
+    if (state.view === "blog") {
+      const all = state.blog.filter((a) => state.blogSport === "all" || a.fam === state.blogSport);
+      renderBlogStats(state.blog);
+      renderChips(all);
+      renderBlog(all);
+      return;
+    }
     if (state.view === "avenir" || state.view === "rugby") {
       const all = state.view === "rugby"
         ? state.aprog.filter((m) => m.sport === "rugby")
@@ -344,21 +364,32 @@
         const wk = nextWeekendKey();
         small.textContent = state.aprog.filter((m) => m.sport === "rugby" && periodKey(m.date) === wk).length;
       }
+      if (b.dataset.view === "blog") {
+        const todo = state.blog.filter((a) => a.st === "todo").length;
+        small.textContent = todo;
+        b.title = todo ? `${todo} article${todo > 1 ? "s" : ""} à relire` : "";
+      }
     });
     const intro = {
       dplus: ["Score de Matchs Delaunay+", "Chaque match diffusé sur Delaunay+ avec son score officiel, rapproché automatiquement des résultats des fédérations. Les points de vigilance signalent un écart de championnat, de poule ou d'équipe."],
       avenir: ["Match à programmer", "Le calendrier fédéral des clubs diffusés, croisé avec les matchs déjà programmés sur delaunayplus.com. En rouge : ce qui manque pour le week-end qui arrive."],
       rugby: ["Rugby", "Rappel hebdomadaire : la liste des matchs de rugby à diffuser arrive chaque semaine. Matchs de Normandie du calendrier fédéral et matchs déjà programmés sur Delaunay+."],
-      all: ["Tous les scores", "Les résultats de tous les championnats suivis, rangés par championnat, poule et journée. Les exempts et forfaits sont signalés."]
+      all: ["Tous les scores", "Les résultats de tous les championnats suivis, rangés par championnat, poule et journée. Les exempts et forfaits sont signalés."],
+      blog: ["Blog", "Les articles rédigés automatiquement à partir de plusieurs médias, du plus récent au plus ancien. Vert : publiable sur Delaunay+. Orange : à revoir. Rouge : on ne publie pas. Les articles disparaissent au bout de 7 jours."]
     }[state.view];
     $("#heroTitle").textContent = intro[0];
     $("#heroDesc").textContent = intro[1];
-    ["dplus", "avenir", "rugby"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
+    ["dplus", "avenir", "rugby", "blog"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
     const on = document.querySelector(".nav__item.is-on");
     if (on && on.parentElement.scrollWidth > on.parentElement.clientWidth) on.parentElement.scrollLeft = on.offsetLeft - 16;
   }
 
   function renderSeg() {
+    if (state.view === "blog") {
+      const opts = [["all", "Tous"], ["sort", "À trier"], ["ok", "Validés"], ["low", "Rejetés"]];
+      $("#seg").innerHTML = opts.map(([v, l]) => `<button class="seg__btn ${state.blogStat === v ? "is-on" : ""}" data-bstat="${v}">${l}</button>`).join("");
+      return;
+    }
     if (state.view === "avenir" || state.view === "rugby") {
       const c = state.checks[state.view];
       const labels = state.view === "rugby" ? ["Pas programmés", "Programmés sur D+"] : ["À programmer", "Déjà programmés"];
@@ -438,6 +469,14 @@
   }
 
   function renderTabs() {
+    if (state.view === "blog") {
+      const fams = BLOG_SPORTS.filter((s) => state.blog.some((a) => a.fam === s.key));
+      if (state.blogSport !== "all" && !fams.some((s) => s.key === state.blogSport)) state.blogSport = "all";
+      const tab = (key, label, n) => `<button class="tab ${state.blogSport === key ? "is-on" : ""}" role="tab" aria-selected="${state.blogSport === key}" data-bsport="${key}">${key !== "all" ? `<i class="dot dot--${key}"></i>` : ""}${esc(label)}<small>${n}</small></button>`;
+      $("#sportTabs").innerHTML = tab("all", "Tous les sports", state.blog.length)
+        + fams.map((s) => tab(s.key, s.label, state.blog.filter((a) => a.fam === s.key).length)).join("");
+      return;
+    }
     if (state.view === "avenir") {
       const wk = nextWeekendKey();
       $("#sportTabs").innerHTML = CFG.sports.filter((s) => pool("avenir")(s.key)).map((s) => {
@@ -598,7 +637,7 @@
   function renderChips(all) {
     const leagues = [...new Set(all.map((m) => m.league))].sort((a, b) => a.localeCompare(b, "fr"));
     if (state.league !== "all" && !leagues.includes(state.league)) state.league = "all";
-    const chips = [["all", "Tous les championnats"], ...leagues.map((l) => [l, l])];
+    const chips = [["all", state.view === "blog" ? "Tous les clubs" : "Tous les championnats"], ...leagues.map((l) => [l, l])];
     $("#leagueChips").innerHTML = leagues.length > 1
       ? chips.map(([v, l]) => `<button class="chip ${state.league === v ? "is-on" : ""}" data-league="${esc(v)}">${esc(l)}</button>`).join("")
       : "";
@@ -756,6 +795,224 @@
     return m;
   }
 
+  // ---------- Vue « Blog » ----------
+  // Familles de sport : une couleur et un filtre par famille (« Handball féminin » -> handball)
+  const BLOG_SPORTS = [
+    { key: "football", label: "Football" },
+    { key: "basket", label: "Basket" },
+    { key: "handball", label: "Handball" },
+    { key: "hockey", label: "Hockey sur glace" },
+    { key: "rugby", label: "Rugby" },
+    { key: "volley", label: "Volley-ball" },
+    { key: "tt", label: "Tennis de table" },
+    { key: "footus", label: "Football américain" },
+    { key: "autre", label: "Autres sports" }
+  ];
+  function sportFam(s) {
+    const n = norm(s);
+    if (/AMERICAIN|FOOT US/.test(n)) return "footus";
+    if (/FOOT/.test(n)) return "football";
+    if (/BASKET/.test(n)) return "basket";
+    if (/HAND/.test(n)) return "handball";
+    if (/HOCKEY/.test(n)) return "hockey";
+    if (/RUGBY/.test(n)) return "rugby";
+    if (/VOLLEY/.test(n)) return "volley";
+    if (/TENNIS DE TABLE|PING/.test(n)) return "tt";
+    return "autre";
+  }
+  // Statut du Sheet -> niveau visuel (mêmes couleurs que le reste du site)
+  const BLOG_ST = { "VALIDE": "ok", "PUBLIE": "ok", "A REVOIR": "mid", "REJETE": "low" };
+  const blogLevel = (statut) => BLOG_ST[norm(statut)] || "todo";
+  const BLOG_LABEL = { ok: "Validé", mid: "À revoir", low: "Rejeté", todo: "À relire" };
+  const DECISIONS = [["ok", "Validé", "✓", "Publier"], ["mid", "À revoir", "?", "À revoir"], ["low", "Rejeté", "✕", "Rejeter"]];
+
+  async function fetchBlog() {
+    const url = CFG.blog && CFG.blog.apiUrl;
+    if (!url) throw new Error("non configuré");
+    const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.erreur || "erreur");
+    return toBlog(data.articles || []);
+  }
+
+  function toBlog(rows) {
+    return rows.filter((r) => r["ID article"] && r["Titre"]).map((r) => {
+      const id = String(r["ID article"]);
+      const pending = state.blogPending[id];
+      const statut = pending || r["Statut"] || "À relire";
+      // Le corps contient le bloc « Sources : » ajouté par n8n : on l'affiche à part
+      const corps = String(r["Corps de l'article"] || "").split(/\n\s*Sources\s*:\s*\n/i)[0].trim();
+      const sources = String(r["Sources citées (média + URL)"] || "").split("\n").map((l) => {
+        const m = l.match(/^(.*?)\s*:\s*(https?:\/\/\S+)/);
+        return m ? { media: clean(m[1]), url: m[2] } : null;
+      }).filter(Boolean);
+      const d = new Date(r["Date création"]);
+      return {
+        id, statut, st: blogLevel(statut),
+        date: isNaN(d) ? null : d,
+        titre: clean(r["Titre"]), chapo: clean(r["Chapô"]), corps,
+        club: clean(r["Club(s)"]), league: clean(r["Club(s)"]) || "—",
+        sport: clean(r["Sport"]) || "Autre", fam: sportFam(r["Sport"]),
+        sources, nbSources: Number(r["Nb de sources"]) || sources.length,
+        photo: clean(r["Photo (URL)"]), credit: clean(r["Crédit photo"]),
+        relu: clean(r["Relu par"]), pending: !!pending
+      };
+    }).sort((a, b) => (b.date ? b.date.getTime() : 0) - (a.date ? a.date.getTime() : 0));
+  }
+
+  function renderBlogStats(all) {
+    const n = (st) => all.filter((a) => a.st === st).length;
+    $("#stats").innerHTML = statsHTML([
+      [all.length, "Articles", "main"],
+      [n("todo"), "À relire", n("todo") ? "warn" : ""],
+      [n("ok"), "Validés", "ok"],
+      [n("mid"), "À revoir", n("mid") ? "warn" : ""],
+      [n("low"), "Rejetés", n("low") ? "alert" : ""]
+    ]);
+  }
+
+  const ilYa = (d) => {
+    if (!d) return "";
+    const min = Math.round((Date.now() - d.getTime()) / 60000);
+    if (min < 1) return "à l'instant";
+    if (min < 60) return `il y a ${min} min`;
+    if (min < 24 * 60) return `il y a ${Math.round(min / 60)} h`;
+    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) + " à " + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  };
+  const jourLabel = (t) => {
+    if (!t) return "Date inconnue";
+    const d = new Date(t), auj = new Date(); auj.setHours(0, 0, 0, 0);
+    const diff = Math.round((auj - d) / 86400000);
+    if (diff === 0) return "Aujourd'hui";
+    if (diff === 1) return "Hier";
+    return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  };
+  const nbMots = (s) => (String(s).match(/\S+/g) || []).length;
+
+  function renderBlog(all) {
+    const q = norm(state.q);
+    const list = all.filter((a) =>
+      (state.league === "all" || a.league === state.league) &&
+      (state.blogStat === "all" || (state.blogStat === "sort" ? (a.st === "todo" || a.st === "mid") : a.st === state.blogStat)) &&
+      (!q || norm(a.titre + " " + a.club + " " + a.chapo).includes(q))
+    );
+    let html = "";
+    if (state.blogState === "demo") html += `<div class="notice">Articles d'exemple : la passerelle Apps Script n'est pas encore branchée (<code>blog.apiUrl</code> dans config.js). Les boutons ne modifient rien dans le Sheet. Voir le README.</div>`;
+    if (state.blogState === "error") html += `<div class="notice notice--error">Impossible de lire les articles depuis le Sheet pour le moment : affichage d'exemples. Vérifie le déploiement Apps Script (README).</div>`;
+    html += `<div class="legend"><span class="legend__item legend__item--ok">Validé : publiable sur Delaunay+</span><span class="legend__item legend__item--mid">À revoir</span><span class="legend__item legend__item--low">Rejeté</span><span class="legend__item legend__item--todo">À relire</span></div>`;
+    if (!list.length) {
+      $("#content").innerHTML = html + `<div class="empty"><b>Aucun article</b>${state.blog.length ? "Rien ne correspond à ces filtres." : "Le workflow n8n n'a encore rédigé aucun article."}</div>`;
+      return;
+    }
+    const byDay = [...groupBy(list, (a) => { if (!a.date) return 0; const d = new Date(a.date); d.setHours(0, 0, 0, 0); return d.getTime(); }).entries()];
+    html += byDay.map(([t, items]) => {
+      const todo = items.filter((a) => a.st === "todo").length;
+      return `<section class="league">
+        <header class="league__head"><h2 class="league__name">${esc(jourLabel(t))}</h2><span class="league__count">${items.length} article${items.length > 1 ? "s" : ""}${todo ? ` · ${todo} à relire` : ""}</span></header>
+        <div class="posts">${items.map(postCard).join("")}</div>
+      </section>`;
+    }).join("");
+    $("#content").innerHTML = html;
+  }
+
+  function postCard(a) {
+    const paras = a.corps.split(/\n\s*\n|\n/).map(clean).filter(Boolean);
+    const open = state.blogOpen.has(a.id);
+    const meta = [a.club, ilYa(a.date)].filter(Boolean).map(esc).join(" · ");
+    return `<article class="post is-${a.st}${a.pending ? " is-pending" : ""}" id="a-${esc(a.id)}" data-id="${esc(a.id)}">
+      <div class="post__meta">
+        <span class="sport sport--${a.fam}"><i class="dot dot--${a.fam}"></i>${esc(a.sport)}</span>
+        <span class="post__info">${meta}</span>
+        <span class="pill pill--${a.st}">${a.pending ? "Envoi…" : BLOG_LABEL[a.st]}</span>
+      </div>
+      ${a.photo ? `<figure class="post__photo"><img src="${esc(a.photo)}" alt="" loading="lazy">${a.credit ? `<figcaption>© ${esc(a.credit)}</figcaption>` : ""}</figure>` : ""}
+      <h3 class="post__title">${esc(a.titre)}</h3>
+      ${a.chapo ? `<p class="post__chapo">${esc(a.chapo)}</p>` : ""}
+      <details class="post__more" data-open-id="${esc(a.id)}" ${open ? "open" : ""}>
+        <summary>Lire l'article <span>${nbMots(a.chapo + " " + a.corps)} mots · ${a.nbSources} source${a.nbSources > 1 ? "s" : ""}</span></summary>
+        <div class="post__body">${paras.map((p) => `<p>${esc(p)}</p>`).join("")}</div>
+        ${a.sources.length ? `<div class="post__src"><b>Sources</b><ul>${a.sources.map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.media)} ↗</a></li>`).join("")}</ul></div>` : ""}
+      </details>
+      <div class="post__actions">
+        <div class="votes" role="group" aria-label="Décision">
+          ${DECISIONS.map(([lvl, statut, ico, label]) => `<button class="vote vote--${lvl} ${a.st === lvl ? "is-on" : ""}" data-decision="${esc(statut)}" aria-pressed="${a.st === lvl}" ${a.pending ? "disabled" : ""}><span aria-hidden="true">${ico}</span>${label}</button>`).join("")}
+        </div>
+        <button class="post__copy" data-copy="${esc(a.id)}">Copier le texte</button>
+      </div>
+      ${a.relu ? `<div class="post__relu">Dernière décision : ${esc(a.relu)}</div>` : ""}
+    </article>`;
+  }
+
+  // Nom de la personne qui relit (mémorisé dans ce navigateur)
+  const lireNom = () => { try { return localStorage.getItem("dplus.relecteur") || ""; } catch (e) { return ""; } };
+  const ecrireNom = (n) => { try { localStorage.setItem("dplus.relecteur", n); } catch (e) { /* navigation privée */ } };
+
+  async function decider(id, statut) {
+    const a = state.blog.find((x) => x.id === id);
+    if (!a || a.pending) return;
+    const avant = { statut: a.statut, st: a.st };
+    const url = CFG.blog && CFG.blog.apiUrl;
+    if (state.blogState || !url) {             // mode exemple : changement local uniquement
+      Object.assign(a, { statut, st: blogLevel(statut) });
+      render(); toast(`Exemple : « ${statut} » n'est pas enregistré dans le Sheet.`);
+      return;
+    }
+    let par = lireNom();
+    if (!par) { par = (window.prompt("Ton prénom (pour savoir qui a validé) :", "") || "").trim(); if (par) ecrireNom(par); }
+    state.blogPending[id] = statut;
+    Object.assign(a, { statut, st: blogLevel(statut), pending: true });
+    render();
+    try {
+      // text/plain : requête « simple », acceptée par Apps Script sans pré-vérification CORS
+      const res = await fetch(url, { method: "POST", body: JSON.stringify({ id, statut, par }) });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.erreur || "refusé");
+      a.relu = `${par ? par + " · " : ""}${new Date().toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`;
+      toast(`« ${a.titre.slice(0, 50)}${a.titre.length > 50 ? "…" : ""} » → ${statut}`);
+    } catch (err) {
+      Object.assign(a, avant);
+      toast(`Échec de l'enregistrement : ${err.message}. Réessaie.`, true);
+    } finally {
+      delete state.blogPending[id];
+      a.pending = false;
+      render();
+    }
+  }
+
+  async function copier(id) {
+    const a = state.blog.find((x) => x.id === id);
+    if (!a) return;
+    const texte = [a.titre, a.chapo, a.corps, a.sources.length ? "Sources :\n" + a.sources.map((s) => `- ${s.media} : ${s.url}`).join("\n") : ""].filter(Boolean).join("\n\n");
+    try { await navigator.clipboard.writeText(texte); toast("Article copié dans le presse-papiers"); }
+    catch (e) { toast("Copie impossible dans ce navigateur", true); }
+  }
+
+  let toastTimer;
+  function toast(msg, err) {
+    let el = $("#toast");
+    if (!el) { el = document.createElement("div"); el.id = "toast"; el.className = "toast"; el.setAttribute("role", "status"); document.body.appendChild(el); }
+    el.textContent = msg;
+    el.classList.toggle("toast--err", !!err);
+    el.classList.add("is-on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("is-on"), 3200);
+  }
+
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-bsport],[data-bstat],[data-decision],[data-copy]");
+    if (!b) return;
+    if (b.dataset.bsport) { state.blogSport = b.dataset.bsport; state.league = "all"; render(); }
+    else if (b.dataset.bstat) { state.blogStat = b.dataset.bstat; render(); }
+    else if (b.dataset.decision) decider(b.closest("[data-id]").dataset.id, b.dataset.decision);
+    else if (b.dataset.copy) copier(b.dataset.copy);
+  });
+  document.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (!d.dataset || !d.dataset.openId) return;
+    if (d.open) state.blogOpen.add(d.dataset.openId); else state.blogOpen.delete(d.dataset.openId);
+  }, true);
+
   // ---------- Events ----------
   document.addEventListener("click", (e) => {
     const t = e.target.closest("[data-sport],[data-league],[data-status],[data-view],[data-conf]");
@@ -826,6 +1083,38 @@
       [f(0), "15:00", "Rugby", "Régional 1 U19 - NORMANDIE", "DIEPPE/BLANGY/EU/FORGES M19", "NORDCOT M19", "À venir", "MANUEL", "NON", "", "", "", "x11", ""]
     ];
   })();
+
+  // Exemple « Blog » : rédigé à partir de titres réels collectés par n8n, dates recalculées par rapport à maintenant
+  window.DEMO_BLOG = () => {
+    const h = (n) => new Date(Date.now() - n * 3600000).toISOString();
+    const art = (id, heures, sport, club, titre, chapo, corps, sources, statut) => ({
+      "ID article": id, "Date création": h(heures), "Sport": sport, "Club(s)": club, "Titre": titre, "Chapô": chapo,
+      "Corps de l'article": corps + "\n\nSources :\n" + sources.map((s) => "- " + s).join("\n"),
+      "Sources citées (média + URL)": sources.join("\n"), "Nb de sources": sources.length, "Statut": statut
+    });
+    return [
+      art("ART-DEMO-1", 2, "Football", "Le Havre AC",
+        "HAC : après Digard et Roussier, le directeur sportif Demba Ba s'en va à son tour",
+        "Le Havre AC, lanterne rouge de Ligue 1, perd son troisième dirigeant en trois jours. Jaïr Karam assure l'intérim sur le banc.",
+        "Samedi 31 octobre, au lendemain de la défaite 1-5 contre le PSG, le HAC a officialisé la mise à pied de Didier Digard. La décision a été prise par Blue Crow Sports Group, propriétaire du club, selon Ouest-France.\n\nLe même jour, le président Jean-Michel Roussier a démissionné. Yacine Alaoui exerce désormais pleinement ses fonctions de directeur général, et Jaïr Karam, directeur du centre de formation, prend en charge l'équipe première.\n\nSelon L'Équipe, Demba Ba, directeur sportif depuis juin, va lui aussi quitter le club ; son adjoint Quentin Rauzier prendrait sa place. Le HAC reçoit Lorient dimanche avant un déplacement à Troyes après la trêve.",
+        ["Ouest-France : https://www.ouest-france.fr/sport/football/le-havre-ac/", "Paris-Normandie : https://www.paris-normandie.fr/", "Tendance Ouest : https://www.tendanceouest.com/"], "À relire"),
+      art("ART-DEMO-2", 5, "Volley-ball", "Évreux Volley-Ball",
+        "Saforelle Volstar : l'Évreux VB s'impose à Bordeaux",
+        "Les Ébroïciennes ramènent une victoire de leur déplacement en Gironde.",
+        "L'Évreux VB s'est imposé à Bordeaux, selon Paris-Normandie, qui y voit une victoire pleine de promesses pour la suite de la saison.",
+        ["Paris-Normandie : https://www.paris-normandie.fr/", "actu.fr : https://actu.fr/"], "Validé"),
+      art("ART-DEMO-3", 26, "Handball féminin", "HAC Handball",
+        "D2F : premier revers de la saison pour le HAC à Clermont",
+        "Les Havraises se sont inclinées pour la première fois de la saison en championnat.",
+        "Sans solution face à Clermont, le HAC Handball a concédé sa première défaite de la saison en D2F, rapporte Paris-Normandie.",
+        ["Paris-Normandie : https://www.paris-normandie.fr/", "Ouest-France : https://www.ouest-france.fr/"], "À revoir"),
+      art("ART-DEMO-4", 30, "Football", "Stade Malherbe Caen",
+        "SM Caen : un nul arraché au Puy-en-Velay (2-2)",
+        "Malherbe reste au pied du podium après le premier tiers du championnat.",
+        "Le SM Caen a obtenu le match nul 2-2 sur le terrain du Puy-en-Velay, samedi 31 octobre, selon Ouest-France.",
+        ["Ouest-France : https://www.ouest-france.fr/sport/football/sm-caen/", "Tendance Ouest : https://www.tendanceouest.com/"], "Rejeté")
+    ];
+  };
 
   load();
   if (CFG.refreshMinutes > 0) setInterval(load, CFG.refreshMinutes * 60000);
