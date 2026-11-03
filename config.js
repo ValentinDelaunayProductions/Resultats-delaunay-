@@ -27,6 +27,14 @@ window.DELAUNAY_CONFIG = {
     gid: "349643127"           // identifiant de l'onglet « MATCH A PROGRAMMER »
   },
 
+  // Section « Blog » : articles rédigés par le workflow n8n « B. Sélection & rédaction »
+  // (onglet « Articles » du Sheet « Automatisation Article blog Delaunay+ »).
+  // apiUrl = URL de l'application web Apps Script (…/exec), voir apps-script/Blog.gs et le README.
+  // Vide = le site affiche des articles d'exemple.
+  blog: {
+    apiUrl: ""
+  },
+
   // Début de la saison en cours : les matchs datés avant sont masqués (ancienne saison).
   debutSaison: "2026-08-22",
 
