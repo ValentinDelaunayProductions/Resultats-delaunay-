@@ -32,7 +32,7 @@ window.DELAUNAY_CONFIG = {
   // apiUrl = URL de l'application web Apps Script (…/exec), voir apps-script/Blog.gs et le README.
   // Vide = le site affiche des articles d'exemple.
   blog: {
-    apiUrl: ""
+    apiUrl: "https://script.google.com/macros/s/AKfycbwxU-IMlXO-JiMfXi2DdoAKnq1DkEsNYVpLshRtTIW0NEcMl6ZGLDlkc0hfc0CSNLnA/exec"
   },
 
   // Début de la saison en cours : les matchs datés avant sont masqués (ancienne saison).
