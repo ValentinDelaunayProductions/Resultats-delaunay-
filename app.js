@@ -18,6 +18,7 @@
     blogStat: "all",       // filtre de statut (Tous / À trier / Validés / Rejetés)
     blogSport: "all",      // filtre de sport
     blogOpen: new Set(),   // articles dépliés (conservés lors du rafraîchissement)
+    howtoOpen: false,      // encadré « Comment ça fonctionne » déplié
     blogPending: {},       // { id: statut } en cours d'envoi
     dplus: [],
     dplusDemo: false,
@@ -890,6 +891,34 @@
   };
   const nbMots = (s) => (String(s).match(/\S+/g) || []).length;
 
+  // Encadré « Comment ça fonctionne » : le tri et l'acheminement des articles, en clair pour l'équipe
+  const HOWTO_ETAPES = [
+    ["Collecte", "Toutes les 3 h", "n8n lit les flux d'une cinquantaine de médias : presse régionale et nationale, sites officiels, fédérations. Seules les actus de moins de 24 h sont gardées."],
+    ["Tri", "Automatique", "Une actu n'est retenue que si elle cite l'un des clubs normands suivis (près de 90, du R1 à la Ligue 1). Faits divers et doublons sont écartés."],
+    ["Croisement", "8 h · 12 h · 18 h", "Les actus qui parlent du même événement sont regroupées. Moins de 2 médias différents : pas d'article. Un sujet déjà traité n'est jamais réécrit."],
+    ["Rédaction", "IA, 3 par passage", "Les 3 meilleurs événements sont rédigés uniquement à partir des faits des sources, citées en bas de chaque article. Brève si l'info est mince."],
+    ["À vous de choisir", "Ici, sur le Blog", "Vert : publiable sur Delaunay+. Orange : à revoir. Rouge : on ne publie pas. Rien n'est publié automatiquement."]
+  ];
+  function howtoHTML() {
+    return `<details class="howto" id="howto" ${state.howtoOpen ? "open" : ""}>
+      <summary class="howto__btn">
+        <span class="howto__ico" aria-hidden="true">?</span>
+        <span class="howto__txt"><b>Comment ça fonctionne</b><small>De l'actu brute à l'article prêt à publier</small></span>
+        <span class="howto__chev" aria-hidden="true">▾</span>
+      </summary>
+      <div class="howto__body">
+        <ol class="howto__steps">
+          ${HOWTO_ETAPES.map(([t, quand, txt], i) => `<li class="howto__step"><span class="howto__num">${i + 1}</span><div><b>${t}</b><em>${quand}</em><p>${txt}</p></div></li>`).join("")}
+        </ol>
+        <div class="howto__rules">
+          <p><b>Qui passe en premier ?</b> Chaque événement reçoit un score : <code>3 × nombre de médias + fiabilité des sources + 2 × importance du club + 2 si moins de 6 h</code>. Plus un sujet est repris par des médias différents, plus il monte.</p>
+          <p><b>Combien de temps ?</b> Les articles restent 7 jours, puis disparaissent du Sheet et du Blog.</p>
+          <p><b>Une erreur de club, un média à ajouter ?</b> Tout se règle dans le Sheet <i>Automatisation Article blog Delaunay+</i> : onglets Sources, Clubs et Paramètres.</p>
+        </div>
+      </div>
+    </details>`;
+  }
+
   function renderBlog(all) {
     const q = norm(state.q);
     const list = all.filter((a) =>
@@ -897,7 +926,7 @@
       (state.blogStat === "all" || (state.blogStat === "sort" ? (a.st === "todo" || a.st === "mid") : a.st === state.blogStat)) &&
       (!q || norm(a.titre + " " + a.club + " " + a.chapo).includes(q))
     );
-    let html = "";
+    let html = howtoHTML();
     if (state.blogState === "demo") html += `<div class="notice">Articles d'exemple : la passerelle Apps Script n'est pas encore branchée (<code>blog.apiUrl</code> dans config.js). Les boutons ne modifient rien dans le Sheet. Voir le README.</div>`;
     if (state.blogState === "error") html += `<div class="notice notice--error">Impossible de lire les articles depuis le Sheet pour le moment : affichage d'exemples. Vérifie le déploiement Apps Script (README).</div>`;
     html += `<div class="legend"><span class="legend__item legend__item--ok">Validé : publiable sur Delaunay+</span><span class="legend__item legend__item--mid">À revoir</span><span class="legend__item legend__item--low">Rejeté</span><span class="legend__item legend__item--todo">À relire</span></div>`;
@@ -1009,6 +1038,7 @@
   });
   document.addEventListener("toggle", (e) => {
     const d = e.target;
+    if (d.id === "howto") { state.howtoOpen = d.open; return; }
     if (!d.dataset || !d.dataset.openId) return;
     if (d.open) state.blogOpen.add(d.dataset.openId); else state.blogOpen.delete(d.dataset.openId);
   }, true);

@@ -80,6 +80,18 @@ Le bouton **Blog** (lien direct : `…/#blog`) affiche les articles rédigés pa
 - **Copier le texte** met titre, chapô, corps et sources dans le presse-papiers, prêts à coller sur Delaunay+.
 - Le workflow n8n supprime du Sheet les articles de plus de 7 jours : ils disparaissent aussi du site.
 
+### Comment les articles sont choisis
+
+Un encadré lumineux **« Comment ça fonctionne »**, en haut du Blog, l'explique à l'équipe. En résumé :
+
+1. **Collecte (toutes les 3 h)** : n8n lit les flux d'une cinquantaine de médias et ne garde que les actus de moins de 24 h.
+2. **Tri** : une actu n'est retenue que si elle cite un des clubs normands suivis (onglet *Clubs*, près de 90 clubs du R1 à la Ligue 1). Faits divers et doublons sont écartés.
+3. **Croisement (8 h, 12 h, 18 h)** : les actus sur le même événement sont regroupées. Moins de 2 médias différents = pas d'article. Un sujet déjà traité n'est jamais réécrit.
+4. **Rédaction** : les 3 meilleurs événements sont rédigés par l'IA à partir des seuls faits des sources, citées en bas de l'article. Score = `3 × nombre de médias + fiabilité des sources + 2 × importance du club + 2 si moins de 6 h`.
+5. **Décision** : vert, orange ou rouge sur le Blog. Rien n'est publié automatiquement ; les articles disparaissent après 7 jours.
+
+Les réglages (médias, clubs, seuils) se font dans le Sheet *Automatisation Article blog Delaunay+*, onglets **Sources**, **Clubs** et **Paramètres**.
+
 ### Brancher le Blog au Sheet (une seule fois)
 
 Le site ne peut pas écrire dans un Google Sheet tout seul : une petite passerelle **Apps Script** s'en charge. Le Sheet des articles n'a **pas** besoin d'être partagé publiquement.

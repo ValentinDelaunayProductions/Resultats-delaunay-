@@ -294,6 +294,35 @@ a { color: inherit; }
 .legend__item--todo::before { background: var(--yellow); }
 .notice code { background: rgba(0,0,0,.12); padding: 0 4px; border-radius: 4px; }
 .notice--error { background: var(--low); color: var(--white); }
+/* Encadré « Comment ça fonctionne » (lueur jaune animée) */
+.howto { position: relative; margin-bottom: 22px; border-radius: var(--r); background: var(--ink-1); border: 1px solid rgba(255,222,0,.55); animation: lueur 3.2s ease-in-out infinite; }
+.howto::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; background: radial-gradient(120% 140% at 0% 0%, rgba(255,222,0,.16), transparent 55%); }
+@keyframes lueur {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,222,0,0), 0 0 18px 0 rgba(255,222,0,.18); }
+  50% { box-shadow: 0 0 0 1px rgba(255,222,0,.25), 0 0 34px 4px rgba(255,222,0,.32); }
+}
+.howto[open] { animation: none; box-shadow: 0 0 26px 2px rgba(255,222,0,.18); }
+.howto__btn { position: relative; list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px; padding: 14px 18px; }
+.howto__btn::-webkit-details-marker { display: none; }
+.howto__ico { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--yellow); color: var(--black); font-weight: 800; font-size: 18px; box-shadow: 0 0 16px rgba(255,222,0,.6); }
+.howto__txt { display: flex; flex-direction: column; min-width: 0; }
+.howto__txt b { font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; font-size: 20px; line-height: 1.1; color: var(--yellow); }
+.howto__txt small { font-size: 12.5px; color: var(--soft); }
+.howto__chev { margin-left: auto; color: var(--yellow); font-size: 18px; transition: transform .2s; }
+.howto[open] .howto__chev { transform: rotate(180deg); }
+.howto__body { position: relative; padding: 4px 18px 18px; border-top: 1px dashed rgba(255,222,0,.25); }
+.howto__steps { list-style: none; display: grid; gap: 10px; margin-top: 14px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .howto__steps { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.howto__step { display: flex; gap: 10px; align-items: flex-start; background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 10px; padding: 12px; min-width: 0; }
+.howto__num { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12px; background: var(--white); color: var(--black); }
+.howto__step:last-child .howto__num { background: var(--yellow); }
+.howto__step b { display: block; font-family: var(--display); text-transform: uppercase; letter-spacing: .04em; font-size: 15px; line-height: 1.15; }
+.howto__step em { display: block; font-style: normal; font-size: 11px; color: var(--yellow); text-transform: uppercase; letter-spacing: .06em; margin: 2px 0 6px; }
+.howto__step p { font-size: 13px; line-height: 1.45; color: var(--soft); }
+.howto__rules { margin-top: 14px; display: grid; gap: 6px; font-size: 13px; color: var(--soft); }
+.howto__rules b { color: var(--white); }
+.howto__rules code { font-family: inherit; font-size: 12.5px; color: var(--yellow); background: rgba(255,222,0,.08); padding: 1px 6px; border-radius: 5px; }
+
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); z-index: 50; max-width: min(92vw, 520px); background: var(--white); color: var(--black); font-size: 13.5px; font-weight: 600; padding: 10px 16px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
 .toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 .toast--err { background: var(--low); color: var(--white); }
