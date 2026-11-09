@@ -893,10 +893,10 @@
 
   // Encadré « Comment ça fonctionne » : le tri et l'acheminement des articles, en clair pour l'équipe
   const HOWTO_ETAPES = [
-    ["Collecte", "Toutes les 3 h", "n8n lit les flux d'une cinquantaine de médias : presse régionale et nationale, sites officiels, fédérations. Seules les actus de moins de 24 h sont gardées."],
-    ["Tri", "Automatique", "Une actu n'est retenue que si elle cite l'un des clubs normands suivis (près de 90, du R1 à la Ligue 1). Faits divers et doublons sont écartés."],
-    ["Croisement", "8 h · 12 h · 18 h", "Les actus qui parlent du même événement sont regroupées. Moins de 2 médias différents : pas d'article. Un sujet déjà traité n'est jamais réécrit."],
-    ["Rédaction", "IA, 3 par passage", "Les 3 meilleurs événements sont rédigés uniquement à partir des faits des sources, citées en bas de chaque article. Brève si l'info est mince."],
+    ["Collecte", "Toutes les heures, 7 h – 23 h", "n8n lit les flux d'une cinquantaine de médias et des recherches par sport (hand, basket, rugby, foot amateur, féminin…). Les clubs sont interrogés à tour de rôle pour que les petits ne soient pas noyés. Seules les actus de moins de 24 h sont gardées."],
+    ["Tri", "Automatique", "Une actu n'est retenue que si elle cite l'un des clubs normands suivis (près de 90, du R1 à la Ligue 1). Agrégateurs, pronostics, feuilles de match, catégories jeunes et copies d'un même journal sont écartés."],
+    ["Croisement", "Toutes les heures", "Les actus qui parlent du même événement sont regroupées. Grands clubs : il faut 2 médias différents. Petits clubs : une seule source fiable suffit, l'article porte alors l'alerte ⚠ Source unique. Un sujet déjà traité n'est jamais réécrit."],
+    ["Rédaction", "IA, jusqu'à 10 par passage", "Les meilleurs événements sont rédigés uniquement à partir des faits des sources, citées en bas de chaque article. Un même club ne prend pas toutes les places. Brève si l'info est mince."],
     ["À vous de choisir", "Ici, sur le Blog", "Vert : publiable sur Delaunay+. Orange : à revoir. Rouge : on ne publie pas. Rien n'est publié automatiquement."]
   ];
   function howtoHTML() {
@@ -911,9 +911,9 @@
           ${HOWTO_ETAPES.map(([t, quand, txt], i) => `<li class="howto__step"><span class="howto__num">${i + 1}</span><div><b>${t}</b><em>${quand}</em><p>${txt}</p></div></li>`).join("")}
         </ol>
         <div class="howto__rules">
-          <p><b>Qui passe en premier ?</b> Chaque événement reçoit un score : <code>3 × nombre de médias + fiabilité des sources + 2 × importance du club + 2 si moins de 6 h</code>. Plus un sujet est repris par des médias différents, plus il monte.</p>
+          <p><b>Qui passe en premier ?</b> Chaque événement reçoit un score : <code>3 × médias (max 3) + fiabilité + 2 × importance du club + 2 si moins de 6 h + 4 si le club n'a pas eu d'article depuis 48 h</code>. Chaque article déjà choisi pour un club fait baisser ses autres sujets, pour varier les clubs et les sports.</p>
           <p><b>Combien de temps ?</b> Les articles restent 7 jours, puis disparaissent du Sheet et du Blog.</p>
-          <p><b>Une erreur de club, un média à ajouter ?</b> Tout se règle dans le Sheet <i>Automatisation Article blog Delaunay+</i> : onglets Sources, Clubs et Paramètres.</p>
+          <p><b>Une erreur de club, un média à ajouter ?</b> Tout se règle dans le Sheet <i>Automatisation Article blog Delaunay+</i> : onglets Sources, Clubs, Recherches, Filtres et Paramètres.</p>
         </div>
       </div>
     </details>`;
@@ -929,7 +929,7 @@
     let html = howtoHTML();
     if (state.blogState === "demo") html += `<div class="notice">Articles d'exemple : la passerelle Apps Script n'est pas encore branchée (<code>blog.apiUrl</code> dans config.js). Les boutons ne modifient rien dans le Sheet. Voir le README.</div>`;
     if (state.blogState === "error") html += `<div class="notice notice--error">Impossible de lire les articles depuis le Sheet pour le moment : affichage d'exemples. Vérifie le déploiement Apps Script (README).</div>`;
-    html += `<div class="legend"><span class="legend__item legend__item--ok">Validé : publiable sur Delaunay+</span><span class="legend__item legend__item--mid">À revoir</span><span class="legend__item legend__item--low">Rejeté</span><span class="legend__item legend__item--todo">À relire</span></div>`;
+    html += `<div class="legend"><span class="legend__item legend__item--ok">Validé : publiable sur Delaunay+</span><span class="legend__item legend__item--mid">À revoir</span><span class="legend__item legend__item--low">Rejeté</span><span class="legend__item legend__item--todo">À relire</span><span class="legend__item legend__item--uniq">⚠ Source unique : à vérifier</span></div>`;
     if (!list.length) {
       $("#content").innerHTML = html + `<div class="empty"><b>Aucun article</b>${state.blog.length ? "Rien ne correspond à ces filtres." : "Le workflow n8n n'a encore rédigé aucun article."}</div>`;
       return;
@@ -956,6 +956,7 @@
         <span class="pill pill--${a.st}">${a.pending ? "Envoi…" : BLOG_LABEL[a.st]}</span>
       </div>
       ${a.photo ? `<figure class="post__photo"><img src="${esc(a.photo)}" alt="" loading="lazy">${a.credit ? `<figcaption>© ${esc(a.credit)}</figcaption>` : ""}</figure>` : ""}
+      ${a.nbSources === 1 ? `<div class="post__warn" role="note"><span aria-hidden="true">⚠</span><span><b>Source unique</b> — l'info ne vient que de ${esc((a.sources[0] && a.sources[0].media) || "un seul média")}. À vérifier avant de publier.</span></div>` : ""}
       <h3 class="post__title">${esc(a.titre)}</h3>
       ${a.chapo ? `<p class="post__chapo">${esc(a.chapo)}</p>` : ""}
       <details class="post__more" data-open-id="${esc(a.id)}" ${open ? "open" : ""}>

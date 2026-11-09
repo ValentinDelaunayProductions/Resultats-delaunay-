@@ -84,13 +84,13 @@ Le bouton **Blog** (lien direct : `…/#blog`) affiche les articles rédigés pa
 
 Un encadré lumineux **« Comment ça fonctionne »**, en haut du Blog, l'explique à l'équipe. En résumé :
 
-1. **Collecte (toutes les 3 h)** : n8n lit les flux d'une cinquantaine de médias et ne garde que les actus de moins de 24 h.
-2. **Tri** : une actu n'est retenue que si elle cite un des clubs normands suivis (onglet *Clubs*, près de 90 clubs du R1 à la Ligue 1). Faits divers et doublons sont écartés.
-3. **Croisement (8 h, 12 h, 18 h)** : les actus sur le même événement sont regroupées. Moins de 2 médias différents = pas d'article. Un sujet déjà traité n'est jamais réécrit.
-4. **Rédaction** : les 3 meilleurs événements sont rédigés par l'IA à partir des seuls faits des sources, citées en bas de l'article. Score = `3 × nombre de médias + fiabilité des sources + 2 × importance du club + 2 si moins de 6 h`.
+1. **Collecte (toutes les heures, 7 h – 23 h)** : n8n lit les flux d'une cinquantaine de médias, plus des recherches par sport et par niveau (onglet *Recherches*). Les clubs sont interrogés à tour de rôle (un sixième par heure, les clubs phares à chaque fois) pour que les petits ne soient pas noyés. Seules les actus de moins de 24 h sont gardées.
+2. **Tri** : une actu n'est retenue que si elle cite un des clubs normands suivis (onglet *Clubs*, près de 90 clubs du R1 à la Ligue 1). Agrégateurs, pronostics, feuilles de match, catégories jeunes et copies d'un même journal (ex. maville.com = Ouest-France) sont écartés (onglet *Filtres*).
+3. **Croisement** : les actus sur le même événement sont regroupées. Clubs de priorité 3 (les plus suivis) : il faut 2 médias différents. Clubs de priorité 1 et 2 : une seule source fiable suffit, et l'article affiche l'alerte **⚠ Source unique** sur le Blog. Un sujet déjà traité n'est jamais réécrit.
+4. **Rédaction** : jusqu'à 10 événements par passage, rédigés par l'IA à partir des seuls faits des sources, citées en bas de l'article. Score = `3 × médias (max 3) + fiabilité + 2 × importance du club + 2 si moins de 6 h + 4 si le club n'a pas eu d'article depuis 48 h`. Chaque article déjà choisi pour un club retire 8 points à ses autres sujets, pour varier clubs et sports.
 5. **Décision** : vert, orange ou rouge sur le Blog. Rien n'est publié automatiquement ; les articles disparaissent après 7 jours.
 
-Les réglages (médias, clubs, seuils) se font dans le Sheet *Automatisation Article blog Delaunay+*, onglets **Sources**, **Clubs** et **Paramètres**.
+Les réglages (médias, clubs, recherches, filtres, seuils) se font dans le Sheet *Automatisation Article blog Delaunay+*, onglets **Sources**, **Clubs**, **Recherches**, **Filtres** et **Paramètres**.
 
 ### Brancher le Blog au Sheet (une seule fois)
 
