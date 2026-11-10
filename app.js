@@ -895,7 +895,7 @@
   const HOWTO_ETAPES = [
     ["Collecte", "Toutes les heures, 7 h – 23 h", "n8n lit les flux d'une cinquantaine de médias et des recherches par sport (hand, basket, rugby, foot amateur, féminin…). Les clubs sont interrogés à tour de rôle pour que les petits ne soient pas noyés. Seules les actus de moins de 24 h sont gardées."],
     ["Tri", "Automatique", "Une actu n'est retenue que si elle cite l'un des clubs normands suivis (près de 90, du R1 à la Ligue 1). Agrégateurs, pronostics, feuilles de match, catégories jeunes et copies d'un même journal sont écartés."],
-    ["Croisement", "Toutes les heures", "Les actus qui parlent du même événement sont regroupées. Grands clubs : il faut 2 médias différents. Petits clubs : une seule source fiable suffit, l'article porte alors l'alerte ⚠ Source unique. Un sujet déjà traité n'est jamais réécrit."],
+    ["Croisement", "Toutes les heures", "Les actus qui parlent du même événement sont regroupées. Un grand média (Ouest-France, Paris-Normandie, actu.fr…) suffit seul, et une seule source fiable suffit pour les petits clubs : l'article porte alors l'alerte ⚠ Source unique. Sinon il faut 2 médias différents. Un contrôle vérifie que l'IA n'a pas mélangé deux sujets. Un sujet déjà traité n'est jamais réécrit."],
     ["Rédaction", "IA, jusqu'à 10 par passage", "Les meilleurs événements sont rédigés uniquement à partir des faits des sources, citées en bas de chaque article. Un même club ne prend pas toutes les places. Brève si l'info est mince."],
     ["À vous de choisir", "Ici, sur le Blog", "Vert : publiable sur Delaunay+. Orange : à revoir. Rouge : on ne publie pas. Rien n'est publié automatiquement."]
   ];
