@@ -9,7 +9,7 @@ Site statique qui affiche les scores de tous les championnats, lus directement d
 | `index.html` | Structure de la page |
 | `style.css` | Charte Delaunay+ (noir / jaune #ffde00 / blanc) |
 | `app.js` | Lecture du Sheet, filtres, affichage |
-| `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement, URL du Blog |
+| `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement, URL du Blog, Sheet du Live |
 | `apps-script/Blog.gs` | Passerelle à coller dans le Sheet des articles (lecture + boutons du Blog) |
 
 ## 1. Rendre le Sheet lisible par le site
@@ -64,6 +64,17 @@ Ces deux boutons (liens directs : `…/#a-programmer` et `…/#rugby`) lisent l'
 - **Rugby** : simple rappel, car la liste des matchs à diffuser arrive chaque semaine. Le site montre les matchs de rugby programmés sur D+ et les matchs de Normandie du calendrier fédéral, sans alerte rouge.
 - Les clubs suivis se règlent dans l'onglet **CLUBS DIFFUSÉS** du Sheet *LIENS POUR AUTOMATISATION D+* (une ligne par équipe : sport, championnat, poule, genre, nom fédération, noms Delaunay+ séparés par `|`, actif). Plus besoin de toucher au workflow.
 - Le Sheet *MATCHS à venir D+* doit être partagé en « Tous les utilisateurs disposant du lien » → Lecteur. L'ID et l'onglet se règlent dans `config.js` (`aProgrammer`).
+
+## Section « Live »
+
+Le bouton **Live** (lien direct : `…/#live`) affiche le fil des matchs suivis en direct. Les données viennent de Highlightly (plan gratuit) via deux workflows n8n, et sont écrites dans le Sheet *API-Sports — clubs par sport* (ID dans `config.js`, `live.sheetId`).
+
+- Onglets lus : **Live (réglages)** (match suivi, Actif, score, minute, état), **Live** (un événement par ligne : minute, type, équipe, texte, statut) et **Matchs** (championnat, journée, date).
+- Pour suivre un match : copier son `ID match` depuis l'onglet *Matchs* dans *Live (réglages)*, mettre **Actif = Oui** et activer le workflow n8n « Highlightly — Live texte d'un match ». Il interroge l'API toutes les 2 minutes et remet Actif à Non à la fin du match.
+- Sur le site : tableau d'affichage (score, minute, état), puis le fil du plus récent au plus ancien. Les buts annulés par la VAR sont barrés ; les événements retirés par la source sont masqués.
+- Quand l'onglet Live est ouvert, le fil se recharge toutes les 30 secondes (`live.refreshSeconds`).
+- Le Sheet doit être partagé en « Tous les utilisateurs disposant du lien » → Lecteur. Ne jamais y écrire la clé API (elle reste dans n8n).
+- Plan gratuit Highlightly : 100 requêtes par jour, soit un seul live complet (≈ 60 requêtes) par jour. Vérifier leurs conditions avant d'afficher ces données au public.
 
 ## Section « Blog »
 

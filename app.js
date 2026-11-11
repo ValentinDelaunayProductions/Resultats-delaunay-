@@ -12,7 +12,7 @@
     demo: false,
     // "all" = tous les scores, "dplus" = matchs Delaunay+, "avenir" = matchs à programmer, "rugby" = rappel rugby
     // vue par défaut = premier onglet (Score de Matchs Delaunay+)
-    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : /blog/i.test(location.hash) ? "blog" : "dplus",
+    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : /blog/i.test(location.hash) ? "blog" : /live/i.test(location.hash) ? "live" : "dplus",
     blog: [],              // onglet « Articles » du Sheet « Automatisation Article blog »
     blogState: "",         // "" | "demo" | "error"
     blogStat: "all",       // filtre de statut (Tous / À trier / Validés / Rejetés)
@@ -20,6 +20,9 @@
     blogOpen: new Set(),   // articles dépliés (conservés lors du rafraîchissement)
     howtoOpen: false,      // encadré « Comment ça fonctionne » déplié
     blogPending: {},       // { id: statut } en cours d'envoi
+    live: [],              // matchs suivis en live (onglets « Live (réglages) », « Live » et « Matchs »)
+    liveState: "",         // "" | "off" (non configuré) | "error" (Sheet pas public)
+    liveMatchs: {},        // ID match -> infos de l'onglet « Matchs » (championnat, date…)
     dplus: [],
     dplusDemo: false,
     conf: "all",           // filtre de confiance (vue Delaunay+)
@@ -30,7 +33,7 @@
       rugby: { todo: true, done: true }
     }
   };
-  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby", blog: "#blog" };
+  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby", blog: "#blog", live: "#live" };
 
   // ---------- Utils ----------
   const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
@@ -185,6 +188,7 @@
       state.blog = CFG.demoFallback && window.DEMO_BLOG ? toBlog(window.DEMO_BLOG()) : [];
       state.blogState = (CFG.blog && CFG.blog.apiUrl) ? "error" : "demo";
     }
+    await loadLive(true);
     if (!state.sport || !pool(state.view)(state.sport)) {
       const has = pool(state.view);
       const first = CFG.sports.find((s) => has(s.key)) || CFG.sports[0];
@@ -291,7 +295,7 @@
   // Les sports qui ont des matchs dans la vue courante
   const pool = (view) => view === "dplus" ? (k) => state.dplus.some((d) => d.sport === k)
     : view === "avenir" ? (k) => state.aprog.some((m) => !m.manuel && m.sport === k)
-    : view === "rugby" || view === "blog" ? () => true
+    : view === "rugby" || view === "blog" || view === "live" ? () => true
     : (k) => (state.data[k] || []).length;
 
   // Week-end qui arrive : du lundi au vendredi -> le samedi suivant ; samedi/dimanche -> ce week-end
@@ -315,6 +319,12 @@
   // ---------- Render ----------
   function render() {
     renderViews();
+    if (state.view === "live") {
+      renderLiveStats();
+      $("#leagueChips").innerHTML = "";
+      renderLive();
+      return;
+    }
     renderTabs();
     renderSeg();
     if (state.view === "blog") {
@@ -365,6 +375,12 @@
         const wk = nextWeekendKey();
         small.textContent = state.aprog.filter((m) => m.sport === "rugby" && periodKey(m.date) === wk).length;
       }
+      if (b.dataset.view === "live") {
+        const enDirect = state.live.filter((g) => g.phase === "live").length;
+        small.textContent = enDirect || state.live.length;
+        b.classList.toggle("has-live", enDirect > 0);
+        b.title = enDirect ? `${enDirect} match${enDirect > 1 ? "s" : ""} en direct` : "";
+      }
       if (b.dataset.view === "blog") {
         const todo = state.blog.filter((a) => a.st === "todo").length;
         small.textContent = todo;
@@ -376,11 +392,13 @@
       avenir: ["Match à programmer", "Le calendrier fédéral des clubs diffusés, croisé avec les matchs déjà programmés sur delaunayplus.com. En rouge : ce qui manque pour le week-end qui arrive."],
       rugby: ["Rugby", "Rappel hebdomadaire : la liste des matchs de rugby à diffuser arrive chaque semaine. Matchs de Normandie du calendrier fédéral et matchs déjà programmés sur Delaunay+."],
       all: ["Tous les scores", "Les résultats de tous les championnats suivis, rangés par championnat, poule et journée. Les exempts et forfaits sont signalés."],
+      live: ["Live", "Le fil des matchs suivis en direct : buts, cartons, changements et décisions VAR, minute par minute. Données Highlightly, mises à jour toutes les 2 minutes par n8n ; la page se rafraîchit toute seule pendant les matchs."],
       blog: ["Blog", "Les articles rédigés automatiquement à partir de plusieurs médias, du plus récent au plus ancien. Vert : publiable sur Delaunay+. Orange : à revoir. Rouge : on ne publie pas. Les articles disparaissent au bout de 7 jours."]
     }[state.view];
     $("#heroTitle").textContent = intro[0];
     $("#heroDesc").textContent = intro[1];
     ["dplus", "avenir", "rugby", "blog"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
+    document.body.classList.toggle("is-liveview", state.view === "live");
     const on = document.querySelector(".nav__item.is-on");
     if (on && on.parentElement.scrollWidth > on.parentElement.clientWidth) on.parentElement.scrollLeft = on.offsetLeft - 16;
   }
@@ -1043,6 +1061,184 @@
     if (!d.dataset || !d.dataset.openId) return;
     if (d.open) state.blogOpen.add(d.dataset.openId); else state.blogOpen.delete(d.dataset.openId);
   }, true);
+
+
+  // ---------- Live (Sheet Highlightly : onglets « Live (réglages) », « Live », « Matchs ») ----------
+  const LIVE_ETAT = {
+    "NOT STARTED": "À venir", "TO BE ANNOUNCED": "Horaire à confirmer", "FIRST HALF": "1re mi-temps", "HALF TIME": "Mi-temps",
+    "SECOND HALF": "2e mi-temps", "EXTRA TIME": "Prolongations", "BREAK TIME": "Pause", "PENALTIES": "Tirs au but",
+    "SUSPENDED": "Suspendu", "INTERRUPTED": "Interrompu", "FINISHED": "Terminé", "FINISHED AFTER PENALTIES": "Terminé (t.a.b.)",
+    "FINISHED AFTER EXTRA TIME": "Terminé (a.p.)", "POSTPONED": "Reporté", "CANCELLED": "Annulé", "ABANDONED": "Arrêté",
+    "AWARDED": "Sur tapis vert", "IN PROGRESS": "En cours"
+  };
+  const liveEtat = (e) => LIVE_ETAT[norm(e)] || clean(e) || "—";
+  const livePhase = (etat, actif) => {
+    const e = norm(etat);
+    if (/^FINISHED|POSTPONED|CANCELLED|ABANDONED|AWARDED/.test(e)) return "done";
+    if (/HALF|EXTRA|BREAK|PENALTIES|PROGRESS|SUSPENDED|INTERRUPTED/.test(e)) return "live";
+    return norm(actif) === "OUI" ? "watch" : "upcoming";
+  };
+  const num = (v) => parseFloat(String(v ?? "").replace(",", ".")) || 0;
+  // « 2026-11-14 21:00 », « 14/11/2026 21:00:00 » ou « 14/11/2026 »
+  function liveDate(s) {
+    s = clean(s);
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+    if (m) return new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]);
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+    if (m) return new Date(+m[3], m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0));
+    return null;
+  }
+  function tableOf(rows, must) {
+    const h = rows.findIndex((r) => r.some((c) => norm(c) === must));
+    if (h < 0) return [];
+    const head = rows[h].map(norm);
+    return rows.slice(h + 1).map((r) => {
+      const o = {};
+      head.forEach((k, i) => { o[k] = clean(r[i] ?? ""); });
+      return o;
+    });
+  }
+  async function fetchLiveTab(tab) {
+    const L = CFG.live || {};
+    const res = await fetch(`https://docs.google.com/spreadsheets/d/${L.sheetId}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tab)}&t=${Date.now()}`);
+    if (!res.ok) throw new Error(res.status);
+    const txt = await res.text();
+    if (/^\s*</.test(txt)) throw new Error("not public");
+    return parseCSV(txt);
+  }
+
+  // full = true : relit aussi l'onglet « Matchs » (championnat, date), plus lourd
+  async function loadLive(full) {
+    const L = CFG.live || {};
+    if (!L.sheetId) { state.live = []; state.liveState = "off"; return; }
+    try {
+      const [reg, evts, matchs] = await Promise.all([
+        fetchLiveTab("Live (réglages)"), fetchLiveTab("Live"),
+        full || !Object.keys(state.liveMatchs).length ? fetchLiveTab("Matchs") : Promise.resolve(null)
+      ]);
+      if (matchs) {
+        state.liveMatchs = {};
+        tableOf(matchs, "ID MATCH").forEach((m) => { if (m["ID MATCH"]) state.liveMatchs[m["ID MATCH"]] = m; });
+      }
+      state.live = toLive(tableOf(reg, "MATCH ID"), tableOf(evts, "CLE"));
+      state.liveState = "";
+    } catch (e) {
+      state.liveState = "error";
+    }
+  }
+
+  function toLive(reglages, evts) {
+    const games = new Map();
+    const game = (id) => {
+      if (!games.has(id)) {
+        const m = state.liveMatchs[id] || {};
+        games.set(id, { id, home: m["DOMICILE"] || "", away: m["EXTERIEUR"] || "", score: m["SCORE"] || "", minute: "",
+          etat: m["ETAT"] || "", actif: "", maj: null, date: liveDate(m["DATE (PARIS)"]), league: m["CHAMPIONNAT"] || "",
+          round: m["JOURNEE"] || "", events: [] });
+      }
+      return games.get(id);
+    };
+    reglages.forEach((r) => {
+      const id = r["MATCH ID"];
+      if (!id) return;
+      const g = game(id);
+      if (r["DOMICILE"]) g.home = r["DOMICILE"];
+      if (r["EXTERIEUR"]) g.away = r["EXTERIEUR"];
+      if (r["SCORE"]) g.score = r["SCORE"];
+      if (r["ETAT"]) g.etat = r["ETAT"];
+      g.minute = r["MINUTE"]; g.actif = r["ACTIF"];
+      g.maj = liveDate(r["DERNIERE MISE A JOUR"]);
+    });
+    evts.forEach((r) => {
+      const id = r["MATCH ID"];
+      if (!id || !r["CLE"] || norm(r["STATUT"]) === "RETIRE PAR LA SOURCE") return;
+      game(id).events.push({
+        key: r["CLE"], minute: r["MINUTE"], ordre: num(r["ORDRE"]), type: r["TYPE"], team: r["EQUIPE"],
+        texte: r["TEXTE"], annule: /ANNULE/.test(norm(r["STATUT"])), ajoute: liveDate(r["AJOUTE LE"])
+      });
+    });
+    const rank = { live: 0, watch: 1, upcoming: 2, done: 3 };
+    return [...games.values()].map((g) => {
+      g.phase = livePhase(g.etat, g.actif);
+      g.events.sort((a, b) => (b.ordre - a.ordre) || ((b.ajoute ? b.ajoute.getTime() : 0) - (a.ajoute ? a.ajoute.getTime() : 0)));
+      const last = g.maj || g.events.reduce((t, e) => (e.ajoute && (!t || e.ajoute > t) ? e.ajoute : t), null);
+      g.sortKey = last ? last.getTime() : (g.date ? g.date.getTime() : 0);
+      return g;
+    }).sort((a, b) => (rank[a.phase] - rank[b.phase]) || (b.sortKey - a.sortKey));
+  }
+
+  function renderLiveStats() {
+    const evts = state.live.flatMap((g) => g.events.filter((e) => !e.annule));
+    const buts = evts.filter((e) => /^(GOAL|PENALTY|OWN GOAL)$/.test(norm(e.type))).length;
+    const enDirect = state.live.filter((g) => g.phase === "live").length;
+    $("#stats").innerHTML = statsHTML([
+      [state.live.length, "Matchs suivis", "main"],
+      [enDirect, "En direct", enDirect ? "alert" : ""],
+      [buts, "Buts", buts ? "ok" : ""],
+      [evts.length, "Événements", ""]
+    ]);
+  }
+
+  const LIVE_PILL = { live: ["pill--live", "En direct"], watch: ["pill--upcoming", "Suivi activé"], upcoming: ["pill--plain", "À venir"], done: ["pill--plain", "Terminé"] };
+
+  function renderLive() {
+    let html = "";
+    if (state.liveState === "off") html += `<div class="notice">Le live n'est pas encore branché : renseigne <code>live.sheetId</code> dans config.js. Voir le README.</div>`;
+    if (state.liveState === "error") html += `<div class="notice notice--error">Impossible de lire le Sheet du live. Vérifie qu'il est partagé en « Tous les utilisateurs disposant du lien » → Lecteur (README, section Live).</div>`;
+    if (!state.live.length) {
+      $("#content").innerHTML = html + `<div class="empty"><b>Aucun match suivi</b>Copie l'ID d'un match de l'onglet « Matchs » dans « Live (réglages) », mets Actif = Oui et active le workflow n8n « Live texte ».</div>`;
+      return;
+    }
+    html += state.live.map(liveGame).join("");
+    $("#content").innerHTML = html;
+  }
+
+  function liveGame(g) {
+    const [cls, label] = LIVE_PILL[g.phase];
+    const sc = parseScore(g.score);
+    const [h, a] = sc || [];
+    const hw = sc && h > a, aw = sc && a > h;
+    const when = g.date ? g.date.toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "";
+    const minute = g.phase === "live" && clean(g.minute) ? `${esc(g.minute)}'` : "";
+    const meta = [g.league, g.round.replace(/^Regular Season - /i, "J"), when].filter(Boolean).map(esc).join(" · ");
+    const maj = g.maj ? `Mis à jour à ${g.maj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "";
+    const feed = g.events.length
+      ? `<ol class="feed">${g.events.map((e) => `<li class="feed__item ${e.annule ? "is-off" : ""} feed__item--${liveKind(e.type)}">
+            <span class="feed__min">${esc(e.minute || "")}</span>
+            <span class="feed__txt">${esc(e.texte)}${e.annule ? ` <span class="pill pill--low">Annulé VAR</span>` : ""}</span>
+          </li>`).join("")}</ol>`
+      : `<p class="feed__empty">${g.phase === "done" ? "Aucun événement enregistré pour ce match." : "Pas encore d'événement : le fil se remplit au fil du match."}</p>`;
+    return `<section class="league live" id="live-${esc(g.id)}">
+      <header class="league__head"><h2 class="league__name">${esc(g.home || "Domicile")} – ${esc(g.away || "Extérieur")}</h2><span class="league__count">${meta}</span></header>
+      <div class="board is-${g.phase}">
+        <div class="board__team">${teamHTML(g.home || "Domicile", hw)}</div>
+        <div class="board__mid">
+          <div class="board__score">${sc ? `<b class="${hw ? "is-win" : ""}">${h}</b><i>–</i><b class="${aw ? "is-win" : ""}">${a}</b>` : `<span class="board__vs">VS</span>`}</div>
+          <div class="board__state"><span class="pill ${cls}">${label}</span>${minute ? `<span class="board__min">${minute}</span>` : ""}<span>${esc(liveEtat(g.etat))}</span></div>
+        </div>
+        <div class="board__team board__team--away">${teamHTML(g.away || "Extérieur", aw)}</div>
+      </div>
+      ${feed}
+      ${maj ? `<p class="feed__maj">${maj}</p>` : ""}
+    </section>`;
+  }
+  function liveKind(type) {
+    const t = norm(type);
+    if (/^(GOAL|PENALTY|OWN GOAL)$/.test(t)) return "goal";
+    if (/RED/.test(t)) return "red";
+    if (/YELLOW/.test(t)) return "yellow";
+    if (/VAR/.test(t)) return "var";
+    if (/SUBST/.test(t)) return "sub";
+    if (t === "ETAT") return "state";
+    return "other";
+  }
+
+  // Pendant qu'on regarde le live : rafraîchissement rapide du fil (sans relire tout le site)
+  setInterval(async () => {
+    if (state.view !== "live" || document.hidden) return;
+    await loadLive(false);
+    if (state.view === "live") render();
+  }, Math.max(15, (CFG.live && CFG.live.refreshSeconds) || 30) * 1000);
 
   // ---------- Events ----------
   document.addEventListener("click", (e) => {

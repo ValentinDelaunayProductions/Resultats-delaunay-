@@ -35,6 +35,13 @@ window.DELAUNAY_CONFIG = {
     apiUrl: "https://script.google.com/macros/s/AKfycbwxU-IMlXO-JiMfXi2DdoAKnq1DkEsNYVpLshRtTIW0NEcMl6ZGLDlkc0hfc0CSNLnA/exec"
   },
 
+  // Section « Live » : Sheet « API-Sports — clubs par sport » rempli par les workflows n8n Highlightly
+  // (onglets « Live (réglages) », « Live » et « Matchs »). Le Sheet doit être partagé en lecture avec le lien.
+  live: {
+    sheetId: "1MBFi6e_heMMzPC55WAxuMXtJiGJ6yc9q7WSNq17ZTq8",
+    refreshSeconds: 30         // rafraîchissement du fil quand l'onglet Live est ouvert
+  },
+
   // Début de la saison en cours : les matchs datés avant sont masqués (ancienne saison).
   debutSaison: "2026-08-22",
 
