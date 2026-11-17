@@ -12,7 +12,7 @@
     demo: false,
     // "all" = tous les scores, "dplus" = matchs Delaunay+, "avenir" = matchs à programmer, "rugby" = rappel rugby
     // vue par défaut = premier onglet (Score de Matchs Delaunay+)
-    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : /blog/i.test(location.hash) ? "blog" : /live/i.test(location.hash) ? "live" : "dplus",
+    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : /blog/i.test(location.hash) ? "blog" : /live/i.test(location.hash) ? "live" : /annuaire/i.test(location.hash) ? "annuaire" : "dplus",
     blog: [],              // onglet « Articles » du Sheet « Automatisation Article blog »
     blogState: "",         // "" | "demo" | "error"
     blogStat: "all",       // filtre de statut (Tous / À trier / Validés / Rejetés)
@@ -28,12 +28,17 @@
     conf: "all",           // filtre de confiance (vue Delaunay+)
     aprog: [],             // onglet « MATCH A PROGRAMMER »
     aprogState: "",        // "" | "demo" | "empty"
+    annu: [],              // Annuaire & inventaire (passerelle Apps Script protégée)
+    annuState: "",         // "" | "off" (non configuré) | "error" | "loading"
+    annuErr: "",
+    annuSport: "all",
+    annuFiltre: "all",     // all | veo | ipad | bureau
     checks: {              // cases à cocher des vues « Matchs à venir » et « Rugby »
       avenir: { todo: true, done: true },
       rugby: { todo: true, done: true }
     }
   };
-  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby", blog: "#blog", live: "#live" };
+  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby", blog: "#blog", live: "#live", annuaire: "#annuaire" };
 
   // ---------- Utils ----------
   const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
@@ -295,7 +300,7 @@
   // Les sports qui ont des matchs dans la vue courante
   const pool = (view) => view === "dplus" ? (k) => state.dplus.some((d) => d.sport === k)
     : view === "avenir" ? (k) => state.aprog.some((m) => !m.manuel && m.sport === k)
-    : view === "rugby" || view === "blog" || view === "live" ? () => true
+    : view === "rugby" || view === "blog" || view === "live" || view === "annuaire" ? () => true
     : (k) => (state.data[k] || []).length;
 
   // Week-end qui arrive : du lundi au vendredi -> le samedi suivant ; samedi/dimanche -> ce week-end
@@ -323,6 +328,10 @@
       renderLiveStats();
       $("#leagueChips").innerHTML = "";
       renderLive();
+      return;
+    }
+    if (state.view === "annuaire") {
+      renderAnnuaire();
       return;
     }
     renderTabs();
@@ -381,6 +390,7 @@
         b.classList.toggle("has-live", enDirect > 0);
         b.title = enDirect ? `${enDirect} match${enDirect > 1 ? "s" : ""} en direct` : "";
       }
+      if (b.dataset.view === "annuaire") small.textContent = state.annu.length;
       if (b.dataset.view === "blog") {
         const todo = state.blog.filter((a) => a.st === "todo").length;
         small.textContent = todo;
@@ -393,11 +403,12 @@
       rugby: ["Rugby", "Rappel hebdomadaire : la liste des matchs de rugby à diffuser arrive chaque semaine. Matchs de Normandie du calendrier fédéral et matchs déjà programmés sur Delaunay+."],
       all: ["Tous les scores", "Les résultats de tous les championnats suivis, rangés par championnat, poule et journée. Les exempts et forfaits sont signalés."],
       live: ["Live", "Le fil des matchs suivis en direct : buts, cartons, changements et décisions VAR, minute par minute. Données Highlightly, mises à jour toutes les 2 minutes par n8n ; la page se rafraîchit toute seule pendant les matchs."],
+      annuaire: ["Annuaire & inventaire", "Tous les clubs équipés, sport par sport : le matériel loué (caméra Veo ou iPad, SIM / eSIM), son statut, et les personnes à appeler en cas de problème. Données lues dans les Sheets « Annuaire et Inventaire », qui restent privés."],
       blog: ["Blog", "Les articles rédigés automatiquement à partir de plusieurs médias, du plus récent au plus ancien. Vert : publiable sur Delaunay+. Orange : à revoir. Rouge : on ne publie pas. Les articles disparaissent au bout de 7 jours."]
     }[state.view];
     $("#heroTitle").textContent = intro[0];
     $("#heroDesc").textContent = intro[1];
-    ["dplus", "avenir", "rugby", "blog"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
+    ["dplus", "avenir", "rugby", "blog", "annuaire"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
     document.body.classList.toggle("is-liveview", state.view === "live");
     const on = document.querySelector(".nav__item.is-on");
     if (on && on.parentElement.scrollWidth > on.parentElement.clientWidth) on.parentElement.scrollLeft = on.offsetLeft - 16;
@@ -1013,7 +1024,7 @@
     render();
     try {
       // text/plain : requête « simple », acceptée par Apps Script sans pré-vérification CORS
-      const res = await fetch(url, { method: "POST", body: JSON.stringify({ id, statut, par }) });
+      const res = await fetch(url, { method: "POST", body: JSON.stringify({ id, statut, par, mdp: lireMdp() }) });
       const data = await res.json();
       if (!data.ok) throw new Error(data.erreur || "refusé");
       a.relu = `${par ? par + " · " : ""}${new Date().toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}`;
@@ -1048,8 +1059,17 @@
   }
 
   document.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-bsport],[data-bstat],[data-decision],[data-copy]");
+    const b = e.target.closest("[data-bsport],[data-bstat],[data-decision],[data-copy],[data-asport],[data-afiltre],[data-secret],[data-areload]");
     if (!b) return;
+    if (b.dataset.asport) { state.annuSport = b.dataset.asport; state.league = "all"; render(); return; }
+    if (b.dataset.afiltre) { state.annuFiltre = b.dataset.afiltre; render(); return; }
+    if (b.dataset.areload !== undefined) { loadAnnuaire().then(render); render(); return; }
+    if (b.dataset.secret !== undefined) {
+      const shown = b.classList.toggle("is-shown");
+      b.textContent = shown ? b.dataset.secret : "••••••";
+      if (shown) navigator.clipboard.writeText(b.dataset.secret).then(() => toast(b.dataset.label || "Copié"), () => {});
+      return;
+    }
     if (b.dataset.bsport) { state.blogSport = b.dataset.bsport; state.league = "all"; render(); }
     else if (b.dataset.bstat) { state.blogStat = b.dataset.bstat; render(); }
     else if (b.dataset.decision) decider(b.closest("[data-id]").dataset.id, b.dataset.decision);
@@ -1240,6 +1260,108 @@
     if (state.view === "live") render();
   }, Math.max(15, (CFG.live && CFG.live.refreshSeconds) || 30) * 1000);
 
+  // ---------- Annuaire & inventaire ----------
+  const ANNU_SPORTS = ["Football", "Basketball", "Handball", "Rugby"];
+  const outilDe = (c) => /veo/i.test(c.outil) ? "veo" : /ipad/i.test(c.outil) ? "ipad" : "";
+  const auBureau = (c) => /bureau|stock/i.test(c.statut);
+  function statutPill(s) {
+    if (!s) return "";
+    const n = norm(s);
+    const cls = /NON ACTIVE|HS|PERDU|VOL/.test(n) ? "pill--low" : /STOCK|BUREAU/.test(n) ? "pill--upcoming" : /ACTIVE/.test(n) ? "pill--ok" : "pill--plain";
+    return `<span class="pill ${cls}">${esc(s)}</span>`;
+  }
+  const telHref = (t) => "tel:" + String(t).replace(/[^\d+]/g, "").replace(/^0(\d{9})$/, "+33$1");
+  const secret = (v, label) => v ? `<button type="button" class="secret" data-secret="${esc(v)}" data-label="${esc(label)}" title="Afficher et copier">••••••</button>` : "";
+
+  function renderAnnuaire() {
+    const base = state.annu.filter((c) => state.annuSport === "all" || c.sport === state.annuSport);
+    // onglets sports
+    const sports = ANNU_SPORTS.filter((sp) => state.annu.some((c) => c.sport === sp));
+    const tab = (key, label, n) => `<button class="tab ${state.annuSport === key ? "is-on" : ""}" role="tab" aria-selected="${state.annuSport === key}" data-asport="${esc(key)}">${esc(label)}<small>${n}</small></button>`;
+    $("#sportTabs").innerHTML = state.annu.length
+      ? tab("all", "Tous les sports", state.annu.length) + sports.map((sp) => tab(sp, sp, state.annu.filter((c) => c.sport === sp).length)).join("")
+      : "";
+    const segs = [["all", "Tous"], ["veo", "Veo"], ["ipad", "iPad"], ["bureau", "Au bureau"]];
+    $("#seg").innerHTML = segs.map(([v, l]) => `<button class="seg__btn ${state.annuFiltre === v ? "is-on" : ""}" data-afiltre="${v}">${l}</button>`).join("");
+    // stats
+    const n = (f) => base.filter(f).length;
+    $("#stats").innerHTML = statsHTML([
+      [base.length, "Clubs", "main"],
+      [n((c) => outilDe(c) === "veo"), "Caméras Veo"],
+      [n((c) => outilDe(c) === "ipad"), "iPad"],
+      [n((c) => /ACTIVE/.test(norm(c.statut)) && !/NON ACTIVE/.test(norm(c.statut))), "Actifs en club", "ok"],
+      [n(auBureau), "Au bureau", n(auBureau) ? "warn" : ""]
+    ]);
+    renderChips(base);
+
+    let html = "";
+    if (state.annuState === "off") {
+      $("#content").innerHTML = `<div class="notice">L'annuaire n'est pas encore branché : installe la passerelle <code>apps-script/Annuaire.gs</code> et renseigne <code>annuaire.apiUrl</code> dans config.js (README, section « Mot de passe & Annuaire »). Tant que c'est vide, le site reste ouvert sans mot de passe.</div>`;
+      return;
+    }
+    if (state.annuState === "loading") { $("#content").innerHTML = `<div class="loading"><span></span><span></span><span></span></div>`; return; }
+    if (state.annuState === "error") html += `<div class="notice notice--error">Impossible de lire l'annuaire : ${esc(state.annuErr)}. <button type="button" class="link" data-areload>Réessayer</button></div>`;
+
+    const q = norm(state.q);
+    const list = base.filter((c) =>
+      (state.league === "all" || c.league === state.league) &&
+      (state.annuFiltre === "all" || (state.annuFiltre === "bureau" ? auBureau(c) : outilDe(c) === state.annuFiltre)) &&
+      (!q || norm([c.club, c.camera, c.sim, c.compte, c.championnat, ...c.contacts.map((p) => p.nom + " " + p.tel + " " + p.mail)].join(" ")).includes(q))
+    );
+    if (!list.length) {
+      $("#content").innerHTML = html + `<div class="empty"><b>Aucun club</b>${state.annu.length ? "Rien ne correspond à ces filtres." : "Les Sheets de l'annuaire sont vides ou illisibles."}</div>`;
+      return;
+    }
+    const groupes = new Map();
+    list.forEach((c) => {
+      const k = (state.annuSport === "all" ? c.sport + " — " : "") + c.championnat;
+      if (!groupes.has(k)) groupes.set(k, []);
+      groupes.get(k).push(c);
+    });
+    groupes.forEach((clubs, k) => {
+      clubs.sort((a, b) => a.club.localeCompare(b.club, "fr"));
+      html += `<section class="league"><header class="league__head"><h2 class="league__name">${esc(k)}</h2><span class="league__count">${clubs.length} club${clubs.length > 1 ? "s" : ""}</span></header>
+        <div class="annus">${clubs.map(annuCard).join("")}</div></section>`;
+    });
+    if (state.annuMaj) html += `<p class="feed__maj">Annuaire lu le ${state.annuMaj.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</p>`;
+    $("#content").innerHTML = html;
+  }
+
+  function annuCard(c) {
+    const o = outilDe(c);
+    const inv = [
+      ["Matériel", esc([c.outil, c.modele].filter(Boolean).join(" · "))],
+      ["Réf. caméra", esc(c.camera)],
+      [/esim/i.test(c.sim) ? "SIM / eSIM" : "SIM", esc(c.sim)],
+      ["PUK", secret(c.puk, "PUK copié")],
+      ["Compte Veo", c.compte ? `<span class="annu__mono">${esc(c.compte)}</span>` : ""],
+      ["Mot de passe", secret(c.mdp, "Mot de passe copié")],
+      ...c.infos.map((i) => [esc(i.label), esc(i.valeur)])
+    ].filter(([, v]) => v);
+    const contacts = c.contacts.length
+      ? c.contacts.map((p) => `<li class="annu__who">
+          <span class="annu__role">${esc(p.role)}</span>
+          ${p.nom ? `<b class="annu__name">${esc(p.nom)}</b>` : ""}
+          <span class="annu__links">
+            ${p.tel ? String(p.tel).split(" / ").map((t) => `<a class="annu__tel" href="${telHref(t)}">${esc(t)}</a>`).join("") : ""}
+            ${p.mail ? String(p.mail).split(" / ").map((m) => `<a class="annu__mail" href="mailto:${esc(m)}">${esc(m)}</a>`).join("") : ""}
+          </span>
+        </li>`).join("")
+      : `<li class="annu__none">Aucun contact renseigné</li>`;
+    return `<article class="annu ${o ? "annu--" + o : ""}">
+      <header class="annu__head">
+        <h3 class="annu__club">${esc(c.club)}</h3>
+        ${o ? `<span class="pill pill--${o === "veo" ? "fem" : "plain"}">${o === "veo" ? "Veo" : "iPad"}</span>` : ""}
+        ${statutPill(c.statut)}
+        <a class="annu__edit" href="${esc(c.lien)}" target="_blank" rel="noopener" title="Ouvrir la ligne dans le Sheet">Sheet ↗</a>
+      </header>
+      <div class="annu__body">
+        <dl class="annu__inv">${inv.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("") || `<div><dt>Matériel</dt><dd>—</dd></div>`}</dl>
+        <ul class="annu__contacts">${contacts}</ul>
+      </div>
+    </article>`;
+  }
+
   // ---------- Events ----------
   document.addEventListener("click", (e) => {
     const t = e.target.closest("[data-sport],[data-league],[data-status],[data-view],[data-conf]");
@@ -1343,6 +1465,78 @@
     ];
   };
 
-  load();
-  if (CFG.refreshMinutes > 0) setInterval(load, CFG.refreshMinutes * 60000);
+  // ---------- Mot de passe ----------
+  // Le mot de passe est vérifié par la passerelle Apps Script (apps-script/Annuaire.gs), pas ici :
+  // c'est elle qui protège les données sensibles. L'écran ci-dessous ne fait que la questionner.
+  const annuUrl = () => (CFG.annuaire && CFG.annuaire.apiUrl) || "";
+  const MDP_KEY = "dplus.mdp";
+  function lireMdp() { try { return localStorage.getItem(MDP_KEY) || ""; } catch (e) { return ""; } }
+  function ecrireMdp(v) { try { v ? localStorage.setItem(MDP_KEY, v) : localStorage.removeItem(MDP_KEY); } catch (e) { /* navigation privée */ } }
+
+  async function appelAnnuaire(mdp) {
+    // text/plain : requête « simple », acceptée par Apps Script sans pré-vérification CORS
+    const res = await fetch(annuUrl(), { method: "POST", body: JSON.stringify({ mdp }) });
+    const data = await res.json();
+    if (!data.ok) { const err = new Error(data.erreur || "refusé"); err.auth = !!data.auth; throw err; }
+    return data;
+  }
+
+  function setAnnu(data) {
+    state.annu = (data.clubs || []).map((c) => ({ ...c, league: c.championnat }));
+    state.annuMaj = data.maj ? new Date(data.maj) : new Date();
+    state.annuState = ""; state.annuErr = "";
+  }
+
+  async function loadAnnuaire() {
+    if (!annuUrl()) { state.annuState = "off"; return; }
+    if (!state.annu.length) state.annuState = "loading";
+    try { setAnnu(await appelAnnuaire(lireMdp())); }
+    catch (err) {
+      if (err.auth && /incorrect/i.test(err.message)) { ecrireMdp(""); location.reload(); return; }
+      state.annuState = "error"; state.annuErr = err.message;
+    }
+  }
+
+  let demarre = false;
+  function demarrer() {
+    if (demarre) return;
+    demarre = true;
+    document.body.classList.remove("is-locked");
+    $("#gate").hidden = true;
+    $("#logout").hidden = !annuUrl();
+    load();
+    if (CFG.refreshMinutes > 0) setInterval(() => { load(); if (annuUrl()) loadAnnuaire().then(() => { if (state.view === "annuaire") render(); }); }, CFG.refreshMinutes * 60000);
+    loadAnnuaire().then(() => { if (state.view === "annuaire" || state.annu.length) render(); });
+  }
+
+  function ouvrirPorte(msg) {
+    document.body.classList.add("is-locked");
+    $("#gate").hidden = false;
+    $("#gateErr").textContent = msg || "";
+    setTimeout(() => $("#gatePwd").focus(), 50);
+  }
+
+  $("#gateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const mdp = $("#gatePwd").value;
+    if (!mdp) return;
+    const btn = $("#gateBtn");
+    btn.disabled = true; btn.textContent = "Vérification…"; $("#gateErr").textContent = "";
+    try {
+      const data = await appelAnnuaire(mdp);
+      ecrireMdp(mdp);
+      setAnnu(data);
+      demarrer();
+    } catch (err) {
+      $("#gateErr").textContent = err.auth ? err.message : "Connexion impossible (" + err.message + "). Réessaie.";
+      $("#gatePwd").select();
+    } finally {
+      btn.disabled = false; btn.textContent = "Entrer";
+    }
+  });
+  $("#logout").addEventListener("click", () => { ecrireMdp(""); location.reload(); });
+
+  if (!annuUrl()) demarrer();                 // passerelle pas encore installée : site ouvert comme avant
+  else if (lireMdp()) demarrer();             // déjà connecté sur cet appareil (re-vérifié au chargement de l'Annuaire)
+  else ouvrirPorte();
 })();

@@ -10,6 +10,9 @@
  *  POST …/exec  {"id":"ART-…","statut":"Validé","par":"Valentin"}  → { ok, id, statut }
  *
  * Le Sheet n'a pas besoin d'être partagé publiquement : seul ce script le lit et l'écrit.
+ *
+ * Optionnel : ⚙ Paramètres du projet → Propriétés du script → MOT_DE_PASSE = le mot de passe du
+ * Centre de suivi. Les boutons Validé / À revoir / Rejeté ne marchent alors que pour l'équipe connectée.
  */
 const ONGLET_ARTICLES = 'Articles';
 const STATUTS_AUTORISES = ['À relire', 'Validé', 'À revoir', 'Rejeté', 'Publié'];
@@ -45,6 +48,9 @@ function doPost(e) {
     let corps = {};
     try { corps = JSON.parse((e && e.postData && e.postData.contents) || '{}'); }
     catch (err) { return reponse_({ ok: false, erreur: 'Requête illisible' }); }
+
+    const attendu = PropertiesService.getScriptProperties().getProperty('MOT_DE_PASSE');
+    if (attendu && String(corps.mdp || '') !== attendu) return reponse_({ ok: false, erreur: 'Mot de passe requis : reconnecte-toi au Centre de suivi' });
 
     const id = String(corps.id || '').trim();
     const statut = String(corps.statut || '').trim();

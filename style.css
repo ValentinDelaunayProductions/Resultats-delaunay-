@@ -399,3 +399,52 @@ a { color: inherit; }
 .feed__item.is-off .feed__txt { text-decoration: line-through; color: var(--mute); font-weight: 500; }
 .feed__item.is-off .feed__txt .pill { text-decoration: none; }
 .feed__empty, .feed__maj { margin-top: 12px; font-size: 12px; color: var(--mute); }
+
+/* ---------- Écran de connexion ---------- */
+body.is-locked > :not(.gate):not(script) { display: none !important; }
+.gate { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: radial-gradient(circle at 50% 30%, #1a1700 0, var(--black) 60%); }
+.gate[hidden] { display: none; }
+.gate__box { width: min(100%, 360px); display: grid; gap: 14px; text-align: center; }
+.gate__box .brand { font-size: 26px; justify-self: center; }
+.gate__title { font-family: var(--display); text-transform: uppercase; font-size: 40px; line-height: 1; }
+.gate__txt { color: var(--soft); font-size: 14px; margin-top: -6px; }
+.gate__field input { width: 100%; height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--ink-1); color: var(--white); font: inherit; font-size: 16px; outline: none; text-align: center; }
+.gate__field input:focus { border-color: var(--yellow); }
+.gate__btn { height: 48px; border-radius: 12px; background: var(--yellow); color: var(--black); font-family: var(--display); text-transform: uppercase; letter-spacing: .06em; font-size: 18px; }
+.gate__btn:disabled { opacity: .6; cursor: wait; }
+.gate__err { min-height: 1.4em; color: var(--low); font-size: 13.5px; font-weight: 600; }
+.top__logout { margin-left: 12px; font-size: 12px; font-weight: 600; color: var(--mute); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; white-space: nowrap; }
+.top__logout:hover { color: var(--white); border-color: var(--mute); }
+.top__logout[hidden] { display: none; }
+
+/* ---------- Annuaire & inventaire ---------- */
+.annus { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 14px; }
+@media (min-width: 1100px) { .annus { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1700px) { .annus { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.annu { background: var(--ink-1); border: 1px solid var(--ink-3); border-left: 3px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.annu--veo { border-left-color: var(--yellow); }
+.annu--ipad { border-left-color: var(--soft); }
+.annu__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.annu__club { font-family: var(--display); text-transform: uppercase; font-size: 20px; line-height: 1.1; margin-right: auto; }
+.annu__edit { font-size: 12px; color: var(--mute); text-decoration: none; white-space: nowrap; }
+.annu__edit:hover { color: var(--yellow); }
+.annu__body { display: grid; gap: 14px; }
+@media (min-width: 640px) { .annu__body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } }
+.annu__inv { display: grid; gap: 6px; align-content: start; font-size: 13px; }
+.annu__inv div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; }
+.annu__inv dt { color: var(--mute); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+.annu__inv dd { overflow-wrap: anywhere; }
+.annu__mono { font-size: 12px; color: var(--soft); }
+.secret { font-size: 12.5px; padding: 1px 8px; border-radius: 6px; background: var(--ink-3); color: var(--soft); letter-spacing: .08em; }
+.secret.is-shown { letter-spacing: 0; color: var(--yellow); font-family: ui-monospace, Menlo, monospace; }
+.annu__contacts { list-style: none; display: grid; gap: 8px; align-content: start; }
+.annu__who { display: grid; gap: 1px; padding: 8px 10px; background: var(--ink-2); border-radius: 8px; min-width: 0; }
+.annu__role { font-size: 10.5px; color: var(--yellow); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+.annu__name { font-size: 14px; }
+.annu__links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; }
+.annu__tel { color: var(--white); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.annu__tel::before { content: "☎ "; color: var(--mute); font-weight: 400; }
+.annu__mail { color: var(--soft); text-decoration: none; overflow-wrap: anywhere; }
+.annu__tel:hover, .annu__mail:hover { color: var(--yellow); }
+.annu__none { font-size: 13px; color: var(--mute); font-style: italic; padding: 8px 0; }
+.notice .link { text-decoration: underline; font-weight: 700; }

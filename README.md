@@ -10,6 +10,7 @@ Site statique qui affiche les scores de tous les championnats, lus directement d
 | `style.css` | Charte Delaunay+ (noir / jaune #ffde00 / blanc) |
 | `app.js` | Lecture du Sheet, filtres, affichage |
 | `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement, URL du Blog, Sheet du Live |
+| `apps-script/Annuaire.gs` | Passerelle protégée par mot de passe : écran de connexion + onglet Annuaire & inventaire |
 | `apps-script/Blog.gs` | Passerelle à coller dans le Sheet des articles (lecture + boutons du Blog) |
 
 ## 1. Rendre le Sheet lisible par le site
@@ -130,3 +131,32 @@ Le site se met à jour tout seul : à chaque visite et toutes les 5 minutes, il 
 ## Polices
 
 La charte utilise **Arges** (titres) et **Area** (texte). Ce sont des polices sous licence : si tu as les fichiers, place `Arges-Normal.woff2` et `Area-Normal.woff2` dans un dossier `fonts/`, ils seront utilisés automatiquement. Sinon le site utilise Antonio et Manrope (Google Fonts), visuellement proches.
+
+
+## Mot de passe & Annuaire
+
+Le dépôt est **public** et les Sheets de scores sont partagés par lien : un mot de passe vérifié par le site
+lui-même ne protégerait rien. Le mot de passe est donc vérifié **chez Google**, par la passerelle
+[`apps-script/Annuaire.gs`](apps-script/Annuaire.gs). C'est elle seule qui lit les 4 Sheets
+« DelaunayPlus_Annuaire_et_Inventaire_* » (Football, Basketball, Handball, Rugby), qui doivent rester **privés**
+(Partager → Accès général : *Limité*).
+
+**Installation (une fois) :**
+1. [script.google.com](https://script.google.com) → **Nouveau projet** → nommer « Annuaire Delaunay+ » → coller `Annuaire.gs` → enregistrer.
+2. Exécuter `testLecture` (autoriser l'accès) → *Journaux* : le nombre de clubs lus doit s'afficher.
+3. ⚙ **Paramètres du projet → Propriétés du script → Ajouter** : `MOT_DE_PASSE` = le mot de passe de l'équipe.
+4. **Déployer → Nouveau déploiement → Application web** → *Exécuter en tant que* : **Moi** → *Qui a accès* : **Tout le monde**.
+5. Copier l'URL `…/exec` dans `config.js` → `annuaire.apiUrl`. Dès ce moment, le site demande le mot de passe.
+
+**Changer le mot de passe :** modifier `MOT_DE_PASSE` dans les propriétés du script (effet immédiat, pas besoin de redéployer).
+Tout le monde est déconnecté au chargement suivant.
+
+**Boutons du Blog :** ajouter la même propriété `MOT_DE_PASSE` dans le projet Apps Script du Blog : seuls les connectés pourront valider ou rejeter.
+
+**Ce qui reste public :** les scores, matchs à programmer, live et articles (Sheets partagés par lien). Ne mettre
+**aucune donnée confidentielle** dans ces Sheets ni dans ce dépôt.
+
+**Lecture des Sheets :** chaque onglet est lu à partir de sa ligne « Nom du Club ». Le bandeau « DELAUNAY+ … (R1 - Groupe B) »
+donne le championnat. Les colonnes « Mail X » / « Tel X » / « X (Nom) » / « X - Nom & Prénom » deviennent des contacts.
+Les autres colonnes s'affichent en infos. L'onglet « Inventaire SIM » complète SIM et PUK par référence de caméra.
+Les listes de diffusion et la « FEUILLE LIGUE » sont ignorées. Si tu modifies `Annuaire.gs` : **Gérer les déploiements → ✏️ → Nouvelle version**.

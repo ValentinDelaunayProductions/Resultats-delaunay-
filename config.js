@@ -42,6 +42,14 @@ window.DELAUNAY_CONFIG = {
     refreshSeconds: 30         // rafraîchissement du fil quand l'onglet Live est ouvert
   },
 
+  // Mot de passe + section « Annuaire & inventaire » : passerelle Apps Script apps-script/Annuaire.gs.
+  // Elle lit les 4 Sheets « DelaunayPlus_Annuaire_et_Inventaire_* » (qui restent PRIVÉS) et vérifie
+  // le mot de passe chez Google. apiUrl rempli = le site demande le mot de passe à l'ouverture.
+  // Vide = pas d'écran de connexion, et l'Annuaire affiche la marche à suivre. Voir le README.
+  annuaire: {
+    apiUrl: ""
+  },
+
   // Début de la saison en cours : les matchs datés avant sont masqués (ancienne saison).
   debutSaison: "2026-08-22",
 

@@ -15,11 +15,26 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="gate" id="gate" hidden>
+    <form class="gate__box" id="gateForm" autocomplete="on">
+      <p class="brand">DELAUNAY<span>+</span></p>
+      <h1 class="gate__title">Centre de suivi</h1>
+      <p class="gate__txt">Accès réservé à l'équipe Delaunay+.</p>
+      <input type="text" name="username" value="equipe" autocomplete="username" hidden>
+      <label class="gate__field">
+        <span class="sr-only">Mot de passe</span>
+        <input id="gatePwd" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+      </label>
+      <button class="gate__btn" type="submit" id="gateBtn">Entrer</button>
+      <p class="gate__err" id="gateErr" role="alert"></p>
+    </form>
+  </div>
   <header class="top">
     <div class="wrap top__bar">
       <a class="brand" href="./" aria-label="Delaunay+ — accueil">DELAUNAY<span>+</span></a>
       <span class="top__tag">Centre de suivi</span>
       <span class="top__status" id="status" aria-live="polite"></span>
+      <button class="top__logout" id="logout" type="button" hidden title="Se déconnecter de cet appareil">Déconnexion</button>
     </div>
     <nav class="wrap nav" role="tablist" aria-label="Sections">
       <button class="nav__item is-on" role="tab" data-view="dplus">Score de Matchs Delaunay+<small>0</small></button>
@@ -28,6 +43,7 @@
       <button class="nav__item" role="tab" data-view="all">Tous les scores</button>
       <button class="nav__item" role="tab" data-view="live">Live<small>0</small></button>
       <button class="nav__item" role="tab" data-view="blog">Blog<small>0</small></button>
+      <button class="nav__item" role="tab" data-view="annuaire">Annuaire &amp; inventaire<small>0</small></button>
     </nav>
   </header>
 
