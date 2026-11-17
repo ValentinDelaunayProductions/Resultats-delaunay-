@@ -161,6 +161,10 @@ Tant que `blog.apiUrl` est vide, le Blog affiche des articles d'exemple et les b
 
 Le site se met à jour tout seul : à chaque visite et toutes les 5 minutes, il relit le Sheet.
 
+## Après une modification de app.js, style.css ou config.js
+
+GitHub Pages garde ces fichiers en cache une dizaine de minutes. Pour que tout le monde reçoive la nouvelle version tout de suite, change le numéro `?v=…` des trois liens en bas et en haut de `index.html` (par exemple la date du jour).
+
 ## Polices
 
 La charte utilise **Arges** (titres) et **Area** (texte). Ce sont des polices sous licence : si tu as les fichiers, place `Arges-Normal.woff2` et `Area-Normal.woff2` dans un dossier `fonts/`, ils seront utilisés automatiquement. Sinon le site utilise Antonio et Manrope (Google Fonts), visuellement proches.
