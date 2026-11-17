@@ -448,3 +448,32 @@ body.is-locked > :not(.gate):not(script) { display: none !important; }
 .annu__tel:hover, .annu__mail:hover { color: var(--yellow); }
 .annu__none { font-size: 13px; color: var(--mute); font-style: italic; padding: 8px 0; }
 .notice .link { text-decoration: underline; font-weight: 700; }
+
+/* ---------- Flux vidéo ---------- */
+.fluxes { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 14px; }
+@media (min-width: 900px) { .fluxes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1500px) { .fluxes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.fcard { background: var(--ink-1); border: 1px solid var(--ink-3); border-left: 3px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+.fcard--low { border-left-color: var(--low); background: linear-gradient(90deg, rgba(255,77,94,.08), transparent 60%), var(--ink-1); }
+.fcard--mid { border-left-color: var(--mid); }
+.fcard--ok { border-left-color: var(--ok); }
+.fcard--wait { border-left-color: var(--yellow); }
+.fcard--off { opacity: .78; }
+.fcard__head { display: flex; align-items: center; gap: 10px; }
+.fcard__dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+.fcard--low .fcard__dot { background: var(--low); animation: pulse-red 2s infinite; }
+.fcard--mid .fcard__dot { background: var(--mid); }
+.fcard--ok .fcard__dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(61,220,132,.18); }
+.fcard--wait .fcard__dot { background: var(--yellow); }
+.fcard__match { font-family: var(--display); text-transform: uppercase; font-size: 19px; line-height: 1.1; margin-right: auto; min-width: 0; }
+.fcard__match i { font-style: normal; color: var(--mute); }
+.fcard__meta { font-size: 12px; color: var(--mute); margin-top: -4px; }
+.fcard__inv { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+.fcard__inv div { grid-template-columns: 84px minmax(0, 1fr); }
+.fcard__links { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.fcard__links a { color: var(--soft); text-decoration: none; }
+.fcard__links a:hover { color: var(--yellow); }
+.q { font-weight: 700; }
+.q--ok { color: var(--ok); } .q--mid { color: var(--mid); } .q--low { color: var(--low); } .q--off { color: var(--mute); }
+.txt-low { color: var(--low); }
+@media (max-width: 560px) { .fcard__inv { grid-template-columns: 1fr; } }

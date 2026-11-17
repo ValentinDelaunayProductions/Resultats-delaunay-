@@ -12,7 +12,7 @@
     demo: false,
     // "all" = tous les scores, "dplus" = matchs Delaunay+, "avenir" = matchs à programmer, "rugby" = rappel rugby
     // vue par défaut = premier onglet (Score de Matchs Delaunay+)
-    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : /blog/i.test(location.hash) ? "blog" : /live/i.test(location.hash) ? "live" : /annuaire/i.test(location.hash) ? "annuaire" : "dplus",
+    view: /a-venir|a-programmer/i.test(location.hash) ? "avenir" : /rugby/i.test(location.hash) ? "rugby" : /scores/i.test(location.hash) ? "all" : /blog/i.test(location.hash) ? "blog" : /live/i.test(location.hash) ? "live" : /annuaire/i.test(location.hash) ? "annuaire" : /flux/i.test(location.hash) ? "flux" : "dplus",
     blog: [],              // onglet « Articles » du Sheet « Automatisation Article blog »
     blogState: "",         // "" | "demo" | "error"
     blogStat: "all",       // filtre de statut (Tous / À trier / Validés / Rejetés)
@@ -33,12 +33,17 @@
     annuErr: "",
     annuSport: "all",
     annuFiltre: "all",     // all | veo | ipad | bureau
+    flux: [],              // onglet « FLUX LIVE » (workflow n8n « Flux YouTube — suivi des lives »)
+    fluxState: "",         // "" | "demo" | "off" | "error"
+    fluxErr: [], fluxInfo: [], fluxMaj: null, fluxVieux: false,
+    fluxSport: "all",
+    fluxFiltre: "all",     // all | pb (problèmes) | ok (reçus) | wait (à venir)
     checks: {              // cases à cocher des vues « Matchs à venir » et « Rugby »
       avenir: { todo: true, done: true },
       rugby: { todo: true, done: true }
     }
   };
-  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby", blog: "#blog", live: "#live", annuaire: "#annuaire" };
+  const HASH = { all: "#scores", dplus: "", avenir: "#a-programmer", rugby: "#rugby", blog: "#blog", live: "#live", annuaire: "#annuaire", flux: "#flux" };
 
   // ---------- Utils ----------
   const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toUpperCase();
@@ -194,6 +199,7 @@
       state.blogState = (CFG.blog && CFG.blog.apiUrl) ? "error" : "demo";
     }
     await loadLive(true);
+    await loadFlux();
     if (!state.sport || !pool(state.view)(state.sport)) {
       const has = pool(state.view);
       const first = CFG.sports.find((s) => has(s.key)) || CFG.sports[0];
@@ -300,7 +306,7 @@
   // Les sports qui ont des matchs dans la vue courante
   const pool = (view) => view === "dplus" ? (k) => state.dplus.some((d) => d.sport === k)
     : view === "avenir" ? (k) => state.aprog.some((m) => !m.manuel && m.sport === k)
-    : view === "rugby" || view === "blog" || view === "live" || view === "annuaire" ? () => true
+    : view === "rugby" || view === "blog" || view === "live" || view === "annuaire" || view === "flux" ? () => true
     : (k) => (state.data[k] || []).length;
 
   // Week-end qui arrive : du lundi au vendredi -> le samedi suivant ; samedi/dimanche -> ce week-end
@@ -332,6 +338,10 @@
     }
     if (state.view === "annuaire") {
       renderAnnuaire();
+      return;
+    }
+    if (state.view === "flux") {
+      renderFlux();
       return;
     }
     renderTabs();
@@ -391,6 +401,14 @@
         b.title = enDirect ? `${enDirect} match${enDirect > 1 ? "s" : ""} en direct` : "";
       }
       if (b.dataset.view === "annuaire") small.textContent = state.annu.length;
+      if (b.dataset.view === "flux") {
+        const jour = fluxDuJour();
+        const rouges = jour.filter((f) => fluxNiveau(f) === "low").length;
+        const recus = jour.filter((f) => f.reception === "Reçu").length;
+        small.textContent = rouges || recus;
+        b.classList.toggle("has-alert", rouges > 0);
+        b.title = rouges ? `${rouges} match${rouges > 1 ? "s" : ""} sans flux` : recus ? `${recus} flux reçu${recus > 1 ? "s" : ""}` : "";
+      }
       if (b.dataset.view === "blog") {
         const todo = state.blog.filter((a) => a.st === "todo").length;
         small.textContent = todo;
@@ -403,12 +421,13 @@
       rugby: ["Rugby", "Rappel hebdomadaire : la liste des matchs de rugby à diffuser arrive chaque semaine. Matchs de Normandie du calendrier fédéral et matchs déjà programmés sur Delaunay+."],
       all: ["Tous les scores", "Les résultats de tous les championnats suivis, rangés par championnat, poule et journée. Les exempts et forfaits sont signalés."],
       live: ["Live", "Le fil des matchs suivis en direct : buts, cartons, changements et décisions VAR, minute par minute. Données Highlightly, mises à jour toutes les 2 minutes par n8n ; la page se rafraîchit toute seule pendant les matchs."],
+      flux: ["Flux vidéo", "Les flux que les clubs envoient sur nos chaînes YouTube, match par match : reçu ou non, qualité, live lancé, spectateurs. Vérifié toutes les 5 minutes par n8n le vendredi de 18 h à 22 h, le samedi et le dimanche de 13 h à 22 h. En rouge : aucun flux alors que le match commence ou a commencé."],
       annuaire: ["Annuaire & inventaire", "Tous les clubs équipés, sport par sport : le matériel loué (caméra Veo ou iPad, SIM / eSIM), son statut, et les personnes à appeler en cas de problème. Données lues dans les Sheets « Annuaire et Inventaire », qui restent privés."],
       blog: ["Blog", "Les articles rédigés automatiquement à partir de plusieurs médias, du plus récent au plus ancien. Vert : publiable sur Delaunay+. Orange : à revoir. Rouge : on ne publie pas. Les articles disparaissent au bout de 7 jours."]
     }[state.view];
     $("#heroTitle").textContent = intro[0];
     $("#heroDesc").textContent = intro[1];
-    ["dplus", "avenir", "rugby", "blog", "annuaire"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
+    ["dplus", "avenir", "rugby", "blog", "annuaire", "flux"].forEach((v) => document.body.classList.toggle("is-" + v, state.view === v));
     document.body.classList.toggle("is-liveview", state.view === "live");
     const on = document.querySelector(".nav__item.is-on");
     if (on && on.parentElement.scrollWidth > on.parentElement.clientWidth) on.parentElement.scrollLeft = on.offsetLeft - 16;
@@ -1361,6 +1380,203 @@
       </div>
     </article>`;
   }
+
+  // ---------- Flux vidéo (onglet « FLUX LIVE », rempli par le workflow n8n « Flux YouTube — suivi des lives ») ----------
+  // niveau : low = rouge, mid = orange, ok = vert, wait = en attente, off = gris
+  const FLUX_ETAT = {
+    ABSENT: ["low", "Aucun flux"], COUPE: ["low", "Flux coupé"], NON_RECU: ["low", "Jamais reçu"],
+    DEGRADE: ["mid", "Qualité dégradée"], SANS_LIVE: ["mid", "Live pas lancé"],
+    OK: ["ok", "Flux reçu"], ATTENTE: ["wait", "En attente"], TERMINE: ["off", "Terminé"],
+    SANS_CLE: ["off", "Clé non associée"], HORS_PLANNING: ["wait", "Hors planning"]
+  };
+  const FLUX_RANG = { low: 0, mid: 1, ok: 2, wait: 3, off: 4 };
+  const FLUX_PILL = { low: "pill--low", mid: "pill--mid", ok: "pill--ok", wait: "pill--upcoming", off: "pill--plain" };
+  const fluxNiveau = (f) => (FLUX_ETAT[f.etat] || ["off", f.etat])[0];
+  // Créneaux suivis par n8n : vendredi 18h-22h, samedi et dimanche 13h-22h
+  const dansCreneau = (d) => { const j = d.getDay(), h = d.getHours() + d.getMinutes() / 60; return (j === 5 && h >= 18 && h <= 22.1) || ((j === 6 || j === 0) && h >= 13 && h <= 22.1); };
+  const fluxMinutes = (s) => { const m = String(s || "").match(/(\d{1,2})[:hH](\d{2})/); return m ? +m[1] * 60 + +m[2] : 9999; };
+
+  async function fetchFlux() {
+    const F = CFG.flux || {};
+    if (!F.sheetId) throw Object.assign(new Error("non configuré"), { off: true });
+    const sel = F.gid ? `gid=${F.gid}` : `sheet=${encodeURIComponent(F.tab || "FLUX LIVE")}`;
+    const res = await fetch(`https://docs.google.com/spreadsheets/d/${F.sheetId}/gviz/tq?tqx=out:csv&headers=1&${sel}&t=${Date.now()}`);
+    if (!res.ok) throw new Error(res.status);
+    const txt = await res.text();
+    if (/^\s*</.test(txt)) throw new Error("not public");
+    return tableOf(parseCSV(txt), "ETAT");
+  }
+
+  function toFlux(rows) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const out = { items: [], erreurs: [], infos: [], maj: null, jour: null };
+    rows.forEach((r) => {
+      const maj = liveDate(r["MAJ"]);
+      if (maj && (!out.maj || maj > out.maj)) out.maj = maj;
+      const d = parseDate(r["DATE"]);
+      if (d && (!out.jour || d > out.jour)) out.jour = d;
+      const etat = norm(r["ETAT"]).replace(/ /g, "_");
+      if (!etat) return;
+      if (etat === "ERREUR_API") { out.erreurs.push({ chaine: r["CHAINE"], msg: r["DETAIL"] }); return; }
+      if (etat === "INFO") { if (r["CHAINE"] || r["DETAIL"]) out.infos.push({ chaine: r["CHAINE"], msg: r["DETAIL"] }); return; }
+      const sp = norm(r["SPORT"]);
+      out.items.push({
+        etat, date: d, heure: r["HEURE"], t: fluxMinutes(r["HEURE"]),
+        sport: /BASKET/.test(sp) ? "basketball" : /RUGBY/.test(sp) ? "rugby" : /HAND/.test(sp) ? "handball" : /TENNIS|PING/.test(sp) ? "tennis-de-table" : sp ? "football" : "",
+        sportTxt: r["SPORT"], league: r["CHAMPIONNAT"] || "Hors planning",
+        home: r["DOMICILE"], away: r["EXTERIEUR"], id: r["ID_MATCH"] || r["STREAM_ID"], detail: r["DETAIL"],
+        chaine: r["CHAINE"], cle: r["NOM_CLE"], reception: r["RECEPTION"], qualite: r["QUALITE"], problemes: r["PROBLEMES"],
+        yt: r["LIVE_YOUTUBE"], video: r["VIDEO_ID"], vues: r["SPECTATEURS"], debutReel: r["DEBUT_REEL"],
+        premier: r["PREMIER_SIGNAL"], dernier: r["DERNIER_SIGNAL"], coupures: num(r["COUPURES"]), lien: r["LIEN_DPLUS"]
+      });
+    });
+    out.vieux = !out.jour || out.jour < today;   // pas de vérification aujourd'hui
+    return out;
+  }
+
+  async function loadFlux() {
+    try {
+      const f = toFlux(await fetchFlux());
+      Object.assign(state, { flux: f.items, fluxErr: f.erreurs, fluxInfo: f.infos, fluxMaj: f.maj, fluxVieux: f.vieux, fluxState: "" });
+    } catch (e) {
+      if (CFG.demoFallback && !e.off) {
+        const f = toFlux(tableOf(window.DEMO_FLUX(), "ETAT"));
+        Object.assign(state, { flux: f.items, fluxErr: f.erreurs, fluxInfo: f.infos, fluxMaj: f.maj, fluxVieux: false, fluxState: "demo" });
+      } else Object.assign(state, { flux: [], fluxErr: [], fluxInfo: [], fluxMaj: null, fluxState: e.off ? "off" : "error" });
+    }
+  }
+
+  const fluxDuJour = () => state.fluxVieux ? [] : state.flux;
+
+  function renderFlux() {
+    const tous = fluxDuJour();
+    const sports = CFG.sports.filter((s) => tous.some((f) => f.sport === s.key));
+    if (state.fluxSport !== "all" && !sports.some((s) => s.key === state.fluxSport)) state.fluxSport = "all";
+    const base = tous.filter((f) => state.fluxSport === "all" || f.sport === state.fluxSport);
+    const tab = (key, label, n) => `<button class="tab ${state.fluxSport === key ? "is-on" : ""}" role="tab" aria-selected="${state.fluxSport === key}" data-fsport="${esc(key)}">${esc(label)}<small>${n}</small></button>`;
+    $("#sportTabs").innerHTML = tous.length ? tab("all", "Tous les sports", tous.length) + sports.map((s) => tab(s.key, s.label, tous.filter((f) => f.sport === s.key).length)).join("") : "";
+    const segs = [["all", "Tous"], ["pb", "Problèmes"], ["ok", "Reçus"], ["wait", "À venir"]];
+    $("#seg").innerHTML = segs.map(([v, l]) => `<button class="seg__btn ${state.fluxFiltre === v ? "is-on" : ""}" data-ffiltre="${v}">${l}</button>`).join("");
+
+    const n = (f) => base.filter(f).length;
+    const rouges = n((f) => fluxNiveau(f) === "low"), oranges = n((f) => fluxNiveau(f) === "mid");
+    $("#stats").innerHTML = statsHTML([
+      [n((f) => f.etat !== "HORS_PLANNING"), "Matchs du jour", "main"],
+      [n((f) => f.reception === "Reçu"), "Flux reçus", "ok"],
+      [rouges, "Sans flux", rouges ? "alert" : ""],
+      [oranges, "À surveiller", oranges ? "warn" : ""],
+      [n((f) => f.etat === "SANS_CLE"), "Clés à associer"]
+    ]);
+    renderChips(base);
+
+    let html = "";
+    if (state.fluxState === "off") { $("#content").innerHTML = `<div class="notice">Le suivi des flux n'est pas encore branché : renseigne <code>flux.sheetId</code> dans config.js (README, section « Flux vidéo »).</div>`; return; }
+    if (state.fluxState === "error") html += `<div class="notice notice--error">Impossible de lire l'onglet FLUX LIVE. Vérifie que le Sheet « MATCHS à venir D+ » est partagé en « Tous les utilisateurs disposant du lien » → Lecteur.</div>`;
+    if (state.fluxState === "demo") html += `<div class="notice">Données d'exemple : l'onglet FLUX LIVE n'est pas encore lisible.</div>`;
+    const maintenant = new Date();
+    if (state.fluxMaj && !state.fluxVieux && dansCreneau(maintenant) && maintenant - state.fluxMaj > 12 * 60000 && state.fluxState !== "demo") {
+      html += `<div class="notice notice--error">Dernière vérification à ${state.fluxMaj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} : le workflow n8n « Flux YouTube » ne tourne plus ? Vérifie qu'il est actif et que n8n est lancé.</div>`;
+    }
+    state.fluxErr.forEach((e) => { html += `<div class="notice notice--error"><b>${esc(e.chaine || "YouTube")}</b> : ${esc(e.msg)}. Reconnecte l'identifiant de cette chaîne dans n8n.</div>`; });
+    state.fluxInfo.forEach((e) => { if (e.chaine) html += `<div class="notice">${esc(e.chaine)} : ${esc(e.msg)}</div>`; });
+
+    if (state.fluxVieux || !tous.length) {
+      const msg = state.fluxVieux
+        ? "Les flux sont vérifiés toutes les 5 minutes le vendredi de 18 h à 22 h, le samedi et le dimanche de 13 h à 22 h."
+        : (state.fluxInfo.find((e) => !e.chaine) || {}).msg || "Aucun match Delaunay+ aujourd'hui.";
+      $("#content").innerHTML = html + `<div class="empty"><b>Pas de suivi en cours</b>${esc(msg)}${state.fluxMaj ? `<br>Dernière vérification : ${esc(state.fluxMaj.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }))}` : ""}</div>`;
+      return;
+    }
+
+    const q = norm(state.q);
+    const filtre = { all: () => true, pb: (f) => ["low", "mid"].includes(fluxNiveau(f)) || f.etat === "SANS_CLE", ok: (f) => f.reception === "Reçu", wait: (f) => f.etat === "ATTENTE" }[state.fluxFiltre];
+    const list = base.filter((f) => filtre(f) && (state.league === "all" || f.league === state.league) &&
+      (!q || norm([f.home, f.away, f.chaine, f.cle].join(" ")).includes(q)));
+    if (!list.length) { $("#content").innerHTML = html + `<div class="empty"><b>Rien à signaler</b>Aucun match ne correspond à ce filtre.</div>`; return; }
+
+    const groupes = new Map();
+    list.slice().sort((a, b) => a.t - b.t || FLUX_RANG[fluxNiveau(a)] - FLUX_RANG[fluxNiveau(b)] || String(a.home).localeCompare(b.home, "fr"))
+      .forEach((f) => { const k = f.etat === "HORS_PLANNING" ? "Hors planning" : f.heure || "Heure inconnue"; if (!groupes.has(k)) groupes.set(k, []); groupes.get(k).push(f); });
+    groupes.forEach((items, k) => {
+      const r = items.filter((f) => fluxNiveau(f) === "low").length;
+      html += `<section class="league"><header class="league__head"><h2 class="league__name">${k === "Hors planning" || k === "Heure inconnue" ? esc(k) : "Coup d'envoi " + esc(k.replace(":", "h"))}</h2>
+        <span class="league__count">${items.length} match${items.length > 1 ? "s" : ""}${r ? ` · <b class="txt-low">${r} sans flux</b>` : ""}</span></header>
+        <div class="fluxes">${items.map(fluxCard).join("")}</div></section>`;
+    });
+    if (state.fluxMaj) html += `<p class="feed__maj">Dernière vérification YouTube : ${esc(state.fluxMaj.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }))} · la page se recharge toute seule</p>`;
+    $("#content").innerHTML = html;
+  }
+
+  function fluxCard(f) {
+    const niv = fluxNiveau(f);
+    const [, label] = FLUX_ETAT[f.etat] || ["off", f.etat];
+    const heureDe = (s) => String(s || "").slice(11, 16);
+    const infos = [
+      ["Réception", esc(f.reception)],
+      ["Qualité", f.qualite ? `<span class="q q--${/Mauvaise/.test(f.qualite) ? "low" : /Correcte/.test(f.qualite) ? "mid" : /Bonne/.test(f.qualite) ? "ok" : "off"}">${esc(f.qualite)}</span>` : ""],
+      ["Live YouTube", esc(f.yt)],
+      ["Spectateurs", f.vues ? `<b>${esc(f.vues)}</b>` : ""],
+      ["Signal", f.premier ? `${esc(heureDe(f.premier))} → ${esc(heureDe(f.dernier))}` : ""],
+      ["Coupures", f.coupures ? `<span class="q q--${f.coupures > 1 ? "low" : "mid"}">${f.coupures}</span>` : ""],
+      ["Chaîne", esc(f.chaine)],
+      ["Clé", f.cle ? `<span class="annu__mono">${esc(f.cle)}</span>` : ""]
+    ].filter(([, v]) => v);
+    const liens = [
+      f.video ? `<a href="https://www.youtube.com/watch?v=${encodeURIComponent(f.video)}" target="_blank" rel="noopener">YouTube ↗</a>` : "",
+      f.video ? `<a href="https://studio.youtube.com/video/${encodeURIComponent(f.video)}/livestreaming" target="_blank" rel="noopener">Studio ↗</a>` : "",
+      f.lien ? `<a href="${esc(f.lien)}" target="_blank" rel="noopener">Page D+ ↗</a>` : ""
+    ].filter(Boolean).join("");
+    const meta = [f.sportTxt, f.league !== "Hors planning" ? f.league : ""].filter(Boolean).map(esc).join(" · ");
+    return `<article class="fcard fcard--${niv}" id="flux-${esc(f.id)}">
+      <header class="fcard__head">
+        <span class="fcard__dot" aria-hidden="true"></span>
+        <h3 class="fcard__match">${esc(f.home || "—")}${f.away ? ` <i>–</i> ${esc(f.away)}` : ""}</h3>
+        <span class="pill ${FLUX_PILL[niv]}">${esc(label)}</span>
+      </header>
+      ${meta ? `<p class="fcard__meta">${meta}</p>` : ""}
+      ${f.detail ? `<div class="vig"><ul>${f.detail.split(/\s+·\s+/).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${f.problemes && !/Qualit/.test(f.detail || "") ? `<div class="vig"><ul><li>${esc(f.problemes)}</li></ul></div>` : ""}
+      ${infos.length ? `<dl class="annu__inv fcard__inv">${infos.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}
+      ${liens ? `<p class="fcard__links">${liens}</p>` : ""}
+    </article>`;
+  }
+
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fsport],[data-ffiltre]");
+    if (!b) return;
+    if (b.dataset.fsport) { state.fluxSport = b.dataset.fsport; state.league = "all"; }
+    if (b.dataset.ffiltre) state.fluxFiltre = b.dataset.ffiltre;
+    render();
+  });
+
+  // Pendant qu'on regarde les flux : relecture de l'onglet FLUX LIVE seulement
+  setInterval(async () => {
+    if (state.view !== "flux" || document.hidden || !demarre) return;
+    await loadFlux();
+    if (state.view === "flux") render();
+  }, Math.max(30, (CFG.flux && CFG.flux.refreshSeconds) || 60) * 1000);
+
+  // Exemple « Flux vidéo » : heures recalculées par rapport à maintenant
+  window.DEMO_FLUX = () => {
+    const now = new Date();
+    const p2 = (n) => String(n).padStart(2, "0");
+    const jourTxt = `${p2(now.getDate())}/${p2(now.getMonth() + 1)}/${now.getFullYear()}`;
+    const h = (min) => { const d = new Date(now.getTime() + min * 60000); d.setMinutes(Math.round(d.getMinutes() / 15) * 15); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+    const maj = `${jourTxt} ${p2(now.getHours())}:${p2(now.getMinutes())}`;
+    const t = (min) => `${jourTxt} ${h(min)}`;
+    const H = ["MAJ", "DATE", "HEURE", "SPORT", "CHAMPIONNAT", "DOMICILE", "EXTERIEUR", "ID_MATCH", "ETAT", "DETAIL", "CHAINE", "NOM_CLE", "STREAM_ID", "RECEPTION", "QUALITE", "PROBLEMES", "LIVE_YOUTUBE", "VIDEO_ID", "SPECTATEURS", "DEBUT_REEL", "PREMIER_SIGNAL", "DERNIER_SIGNAL", "COUPURES", "LIEN_DPLUS"];
+    const L = (o) => H.map((k) => o[k] ?? "");
+    return [H,
+      L({ MAJ: maj, DATE: jourTxt, HEURE: h(-30), SPORT: "Football", CHAMPIONNAT: "National 2", DOMICILE: "SM Caen 2", EXTERIEUR: "AF Virois", ID_MATCH: "d1", ETAT: "OK", CHAINE: "D+ Football Normandie National", NOM_CLE: "SM Caen B", RECEPTION: "Reçu", QUALITE: "Bonne", LIVE_YOUTUBE: "En direct", VIDEO_ID: "demo", SPECTATEURS: "137", PREMIER_SIGNAL: t(-45), DERNIER_SIGNAL: maj }),
+      L({ MAJ: maj, DATE: jourTxt, HEURE: h(-30), SPORT: "Football", CHAMPIONNAT: "Régional 1", DOMICILE: "US Granvillaise", EXTERIEUR: "FC Lorient 2", ID_MATCH: "d2", ETAT: "ABSENT", DETAIL: "Match commencé depuis 30 min et aucun flux", CHAINE: "D+ Football Normandie", NOM_CLE: "Granville", RECEPTION: "Aucun", LIVE_YOUTUBE: "Prêt", VIDEO_ID: "demo" }),
+      L({ MAJ: maj, DATE: jourTxt, HEURE: h(-30), SPORT: "Rugby", CHAMPIONNAT: "Régional 1 U19", DOMICILE: "RC Yvetotais", EXTERIEUR: "Nordcot M19", ID_MATCH: "d3", ETAT: "COUPE", DETAIL: `Flux coupé depuis ${h(-5)} · 1 coupure`, CHAINE: "D+ Rugby Normandie", NOM_CLE: "RC Yvetot", RECEPTION: "Aucun", LIVE_YOUTUBE: "En direct", VIDEO_ID: "demo", PREMIER_SIGNAL: t(-40), DERNIER_SIGNAL: t(-5), COUPURES: "1" }),
+      L({ MAJ: maj, DATE: jourTxt, HEURE: h(0), SPORT: "Handball", CHAMPIONNAT: "Nationale 2", DOMICILE: "Caen Handball", EXTERIEUR: "Cesson Rennes 2", ID_MATCH: "d4", ETAT: "DEGRADE", DETAIL: "Qualité mauvaise : Débit vidéo trop faible", CHAINE: "D+ Handball Normandie", NOM_CLE: "Caen HB", RECEPTION: "Reçu", QUALITE: "Mauvaise", PROBLEMES: "Débit vidéo trop faible", LIVE_YOUTUBE: "En direct", VIDEO_ID: "demo", SPECTATEURS: "42", PREMIER_SIGNAL: t(-20), DERNIER_SIGNAL: maj }),
+      L({ MAJ: maj, DATE: jourTxt, HEURE: h(0), SPORT: "Basket", CHAMPIONNAT: "Nationale 3", DOMICILE: "UST Basket Equeurdreville", EXTERIEUR: "CS Bayeux Basket", ID_MATCH: "d5", ETAT: "SANS_LIVE", DETAIL: "Flux reçu mais le live YouTube n'est pas lancé (Prêt)", CHAINE: "D+ Basket Normandie", NOM_CLE: "Equeurdreville", RECEPTION: "Reçu", QUALITE: "Correcte", LIVE_YOUTUBE: "Prêt", VIDEO_ID: "demo", PREMIER_SIGNAL: t(-10), DERNIER_SIGNAL: maj }),
+      L({ MAJ: maj, DATE: jourTxt, HEURE: h(120), SPORT: "Basket", CHAMPIONNAT: "Nationale 3", DOMICILE: "ASPTT Rouen", EXTERIEUR: "AS Meudon", ID_MATCH: "d6", ETAT: "ATTENTE", CHAINE: "D+ Basket Normandie", NOM_CLE: "ASPTT Rouen", RECEPTION: "Aucun", LIVE_YOUTUBE: "Programmé", VIDEO_ID: "demo" }),
+      L({ MAJ: maj, DATE: jourTxt, HEURE: h(120), SPORT: "Basket", CHAMPIONNAT: "Pré-National", DOMICILE: "GCO Bihorel 2", EXTERIEUR: "Evreux Netreville BB", ID_MATCH: "d7", ETAT: "SANS_CLE", DETAIL: "Aucune clé de diffusion associée à cette équipe : ajoute son nom dans la colonne EQUIPES de l'onglet CLÉS DE DIFFUSION." }),
+      L({ MAJ: maj, DATE: jourTxt, SPORT: "Basket", DOMICILE: "Test bureau", ETAT: "HORS_PLANNING", DETAIL: "Flux reçu sur une clé qui n'a pas de match aujourd'hui dans « à venir D+ »", CHAINE: "D+ Basket Normandie", NOM_CLE: "Test bureau", STREAM_ID: "s9", RECEPTION: "Reçu", QUALITE: "Correcte", PREMIER_SIGNAL: t(-15), DERNIER_SIGNAL: maj })
+    ];
+  };
 
   // ---------- Events ----------
   document.addEventListener("click", (e) => {

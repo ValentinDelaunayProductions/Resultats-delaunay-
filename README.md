@@ -77,6 +77,39 @@ Le bouton **Live** (lien direct : `…/#live`) affiche le fil des matchs suivis 
 - Le Sheet doit être partagé en « Tous les utilisateurs disposant du lien » → Lecteur. Ne jamais y écrire la clé API (elle reste dans n8n).
 - Plan gratuit Highlightly : 100 requêtes par jour, soit un seul live complet (≈ 60 requêtes) par jour. Vérifier leurs conditions avant d'afficher ces données au public.
 
+## Section « Flux vidéo »
+
+Le bouton **Flux vidéo** (lien direct : `…/#flux`) montre, match par match, si le flux envoyé par le club arrive bien sur nos chaînes YouTube. Les données viennent de l'onglet **FLUX LIVE** du Sheet *MATCHS à venir D+*, réécrit toutes les 5 minutes par le workflow n8n **« Flux YouTube — suivi des lives »** (`n8n/Flux-YouTube-suivi-des-lives.json`) : vendredi 18 h – 22 h, samedi et dimanche 13 h – 22 h.
+
+| Couleur | États | Signification |
+| --- | --- | --- |
+| 🔴 rouge | Aucun flux · Flux coupé · Jamais reçu | rien n'arrive alors que le match commence dans moins de 15 min ou a commencé ; le flux est tombé pendant le match ; match fini sans aucun flux |
+| 🟠 orange | Qualité dégradée · Live pas lancé | YouTube juge le flux mauvais (débit, résolution…) ; le flux arrive mais aucun live YouTube n'est en cours sur la clé, donc rien n'est visible en ligne |
+| 🟢 vert | Flux reçu | flux reçu, qualité bonne ou correcte, live en cours |
+| 🟡 jaune | En attente · Hors planning | match pas encore commencé ; flux reçu sur une clé sans match aujourd'hui (test, match non programmé) |
+| ⚪ gris | Terminé · Clé non associée | match fini ; aucune clé de diffusion trouvée pour l'équipe |
+
+- Chaque carte montre la chaîne, la clé (son nom, jamais la clé secrète), la qualité, l'état du live YouTube, les spectateurs, l'heure du premier et du dernier signal et le nombre de coupures, avec les liens YouTube, YouTube Studio et la page Delaunay+.
+- Le compteur du bouton passe au rouge s'il y a des matchs sans flux. Un bandeau rouge s'affiche si une chaîne ne répond plus (identifiant à reconnecter dans n8n) ou si la dernière vérification date de plus de 12 minutes pendant un créneau.
+- Quand la section est ouverte, la page relit l'onglet toutes les minutes (`flux.refreshSeconds`).
+
+### Associer une équipe à sa clé
+
+L'onglet **CLÉS DE DIFFUSION** est rempli tout seul par n8n : une ligne par clé trouvée sur les 7 chaînes. n8n remplit **EQUIPES** avec le nom tiré de la clé (`RTMP Stream | Evreux Netreville BB | API` → `Evreux Netreville BB`), qui correspond déjà aux noms de « à venir D+ ». Si une équipe reste « Clé non associée », corrige **EQUIPES** pour qu'il soit **exactement comme dans la colonne DOMICILE** (plusieurs noms séparés par `|`, ex. `SM Caen 2|SM Caen B`). `ACTIF = NON` ignore une clé. Si une équipe a plusieurs clés, celle qui reçoit un flux est retenue. Les matchs de **Ligue 3** ne sont pas suivis (pas de clé club) : liste `CHAMPIONNATS_IGNORES` en haut du nœud « Analyser les flux ». Le rapprochement se fait d'abord sur l'équipe à domicile, puis sur l'équipe à l'extérieur, et seulement parmi les chaînes du même sport.
+
+### Installer le workflow (une fois)
+
+1. Google Cloud : dans le projet qui sert déjà à n8n, activer **YouTube Data API v3**.
+2. n8n : **Import from file** → `Flux-YouTube-suivi-des-lives.json`.
+3. Créer 7 identifiants **Google OAuth2 API**, un par chaîne sport (la chaîne principale *Youtube Delaunay+* n'a pas le direct activé et n'est pas suivie) (même Client ID / Secret que d'habitude, scope `https://www.googleapis.com/auth/youtube.readonly`). À la connexion, Google demande de choisir le compte : choisir **la chaîne** concernée. Les nommer « YouTube — D+ Football Normandie », etc.
+4. Dans chaque groupe de 3 nœuds `YT clés / YT en direct / YT à venir — <chaîne>`, choisir l'identifiant de cette chaîne. Pour `Spectateurs`, n'importe lequel. Pour les nœuds Google Sheets, l'identifiant Sheets habituel.
+5. Lancer **Test manuel**, compléter EQUIPES dans CLÉS DE DIFFUSION, puis activer le workflow.
+6. Optionnel : activer le nœud **Mail d'alerte** (Gmail) avec la bonne adresse ; il n'envoie un mail que quand un match change d'état.
+
+**Quota YouTube :** environ 25 unités par passage (clés sur plusieurs pages pour le foot et le basket, 14 appels pour les lives, 1 pour les spectateurs), soit environ 2 700 unités un samedi ou un dimanche et 6 700 sur un week-end, pour 10 000 par jour. Le quota repart à zéro à 9 h (heure de Paris).
+
+**Sécurité :** le workflow ne demande jamais la partie `cdn` de l'API : la clé de stream secrète n'est ni lue ni écrite dans le Sheet, qui est public par lien.
+
 ## Section « Blog »
 
 Le bouton **Blog** (lien direct : `…/#blog`) affiche les articles rédigés par le workflow n8n « B. Sélection & rédaction » dans l'onglet **Articles** du Sheet *Automatisation Article blog Delaunay+*.

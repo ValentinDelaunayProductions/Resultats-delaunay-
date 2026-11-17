@@ -42,6 +42,14 @@ window.DELAUNAY_CONFIG = {
     refreshSeconds: 30         // rafraîchissement du fil quand l'onglet Live est ouvert
   },
 
+  // Section « Flux vidéo » : onglet « FLUX LIVE » du Sheet MATCHS à venir D+, rempli toutes les 5 min
+  // par le workflow n8n « Flux YouTube — suivi des lives » (vendredi 18h-22h, samedi et dimanche 13h-22h).
+  flux: {
+    sheetId: "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+    gid: "2031239987",         // identifiant de l'onglet « FLUX LIVE »
+    refreshSeconds: 60         // relecture de l'onglet quand la section Flux vidéo est ouverte
+  },
+
   // Mot de passe + section « Annuaire & inventaire » : passerelle Apps Script apps-script/Annuaire.gs.
   // Elle lit les 4 Sheets « DelaunayPlus_Annuaire_et_Inventaire_* » (qui restent PRIVÉS) et vérifie
   // le mot de passe chez Google. apiUrl rempli = le site demande le mot de passe à l'ouverture.

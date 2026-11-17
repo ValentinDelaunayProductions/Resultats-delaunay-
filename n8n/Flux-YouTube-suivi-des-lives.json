@@ -1,0 +1,2051 @@
+{
+  "name": "Flux YouTube — suivi des lives",
+  "nodes": [
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000001",
+      "position": [
+        0,
+        0
+      ],
+      "name": "Créneaux de match",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 18-21 * * 5"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "*/5 13-21 * * 6,0"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 22 * * 0,5,6"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000002",
+      "position": [
+        0,
+        200
+      ],
+      "name": "Test manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {}
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000003",
+      "position": [
+        240,
+        100
+      ],
+      "name": "Planning (à venir D+)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1475277224,
+          "mode": "list",
+          "cachedResultName": "à venir D+",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8/edit#gid=1475277224"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000004",
+      "position": [
+        460,
+        100
+      ],
+      "name": "Clés de diffusion",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 353307248,
+          "mode": "list",
+          "cachedResultName": "CLÉS DE DIFFUSION",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8/edit#gid=353307248"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000005",
+      "position": [
+        680,
+        100
+      ],
+      "name": "Flux précédent",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2031239987,
+          "mode": "list",
+          "cachedResultName": "FLUX LIVE",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8/edit#gid=2031239987"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000006",
+      "position": [
+        900,
+        -60
+      ],
+      "name": "YT clés — Football Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveStreams",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,status"
+            },
+            {
+              "name": "mine",
+              "value": "true"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000007",
+      "position": [
+        900,
+        100
+      ],
+      "name": "YT en direct — Football Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "active"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000008",
+      "position": [
+        900,
+        260
+      ],
+      "name": "YT à venir — Football Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "upcoming"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000009",
+      "position": [
+        1120,
+        -60
+      ],
+      "name": "YT clés — Football Normandie National",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveStreams",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,status"
+            },
+            {
+              "name": "mine",
+              "value": "true"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000010",
+      "position": [
+        1120,
+        100
+      ],
+      "name": "YT en direct — Football Normandie National",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "active"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000011",
+      "position": [
+        1120,
+        260
+      ],
+      "name": "YT à venir — Football Normandie National",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "upcoming"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000012",
+      "position": [
+        1340,
+        -60
+      ],
+      "name": "YT clés — Basket Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveStreams",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,status"
+            },
+            {
+              "name": "mine",
+              "value": "true"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000013",
+      "position": [
+        1340,
+        100
+      ],
+      "name": "YT en direct — Basket Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "active"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000014",
+      "position": [
+        1340,
+        260
+      ],
+      "name": "YT à venir — Basket Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "upcoming"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000015",
+      "position": [
+        1560,
+        -60
+      ],
+      "name": "YT clés — Basketball Normandie National",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveStreams",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,status"
+            },
+            {
+              "name": "mine",
+              "value": "true"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000016",
+      "position": [
+        1560,
+        100
+      ],
+      "name": "YT en direct — Basketball Normandie National",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "active"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000017",
+      "position": [
+        1560,
+        260
+      ],
+      "name": "YT à venir — Basketball Normandie National",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "upcoming"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000018",
+      "position": [
+        1780,
+        -60
+      ],
+      "name": "YT clés — Handball Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveStreams",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,status"
+            },
+            {
+              "name": "mine",
+              "value": "true"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000019",
+      "position": [
+        1780,
+        100
+      ],
+      "name": "YT en direct — Handball Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "active"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000020",
+      "position": [
+        1780,
+        260
+      ],
+      "name": "YT à venir — Handball Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "upcoming"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000021",
+      "position": [
+        2000,
+        -60
+      ],
+      "name": "YT clés — Rugby Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveStreams",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,status"
+            },
+            {
+              "name": "mine",
+              "value": "true"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000022",
+      "position": [
+        2000,
+        100
+      ],
+      "name": "YT en direct — Rugby Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "active"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000023",
+      "position": [
+        2000,
+        260
+      ],
+      "name": "YT à venir — Rugby Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "upcoming"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000024",
+      "position": [
+        2220,
+        -60
+      ],
+      "name": "YT clés — Tennis Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveStreams",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,status"
+            },
+            {
+              "name": "mine",
+              "value": "true"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000025",
+      "position": [
+        2220,
+        100
+      ],
+      "name": "YT en direct — Tennis Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "active"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000026",
+      "position": [
+        2220,
+        260
+      ],
+      "name": "YT à venir — Tennis Normandie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/liveBroadcasts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "id,snippet,contentDetails,status"
+            },
+            {
+              "name": "broadcastStatus",
+              "value": "upcoming"
+            },
+            {
+              "name": "broadcastType",
+              "value": "all"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 6,
+              "requestInterval": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000027",
+      "position": [
+        2440,
+        100
+      ],
+      "name": "Analyser les flux",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// =====================================================================\n//  ANALYSER LES FLUX — croise le planning du jour, les clés de diffusion\n//  et ce que renvoie YouTube pour chaque chaîne.\n//  Sortie : un seul élément { flux: [...], cles: [...], videoIds: [...] }\n// =====================================================================\n\n// ---------- Réglages ----------\nconst TZ = 'Europe/Paris';\nconst AVANT_MIN = 15;     // minutes avant le coup d'envoi : au-delà, l'absence de flux passe en rouge\nconst DUREE_MIN = { FOOTBALL: 120, BASKET: 120, HANDBALL: 100, RUGBY: 120, TENNIS: 300, AUTRE: 120 };\nconst SEUIL_APPROX = 0.75;\n// Championnats sans clé de diffusion club (flux produits ailleurs) : non suivis\nconst CHAMPIONNATS_IGNORES = ['LIGUE 3']; // ressemblance minimale entre un nom d'équipe et une clé (1 = identique)\n\n// Une ligne par chaîne YouTube. \"noeud\" = suffixe des 3 nœuds HTTP de la chaîne.\n// sport = null : la chaîne peut diffuser tous les sports.\nconst CHAINES = [\n  { nom: 'D+ Football Normandie',            sport: 'FOOTBALL', noeud: 'Football Normandie' },\n  { nom: 'D+ Football Normandie National',   sport: 'FOOTBALL', noeud: 'Football Normandie National' },\n  { nom: 'D+ Basket Normandie',              sport: 'BASKET',   noeud: 'Basket Normandie' },\n  { nom: 'D+ Basketball Normandie National', sport: 'BASKET',   noeud: 'Basketball Normandie National' },\n  { nom: 'D+ Handball Normandie',            sport: 'HANDBALL', noeud: 'Handball Normandie' },\n  { nom: 'D+ Rugby Normandie',               sport: 'RUGBY',    noeud: 'Rugby Normandie' },\n  { nom: 'D+ Tennis Normandie',              sport: 'TENNIS',   noeud: 'Tennis Normandie' }\n];\n\n// ---------- Outils ----------\nconst norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();\nconst MOTS_VIDES = new Set(['FC', 'AS', 'US', 'SC', 'RC', 'CS', 'ES', 'AC', 'CA', 'SM', 'ST', 'STE', 'CLUB', 'DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'L', 'D', 'ET']);   // (F) reste : il distingue les équipes féminines\nconst jetons = (s) => new Set(norm(s).split(' ').filter((t) => t && !MOTS_VIDES.has(t)));\nfunction ressemblance(a, b) {\n  if (norm(a) === norm(b)) return 1;\n  const A = jetons(a), B = jetons(b);\n  if (!A.size || !B.size) return 0;\n  let n = 0; A.forEach((t) => { if (B.has(t)) n++; });\n  return n / (A.size + B.size - n);\n}\n// « RTMP Stream | Evreux Netreville BB | API » -> « Evreux Netreville BB »\nconst nomEquipe = (titre) => { const m = String(titre || '').match(/^\\s*RTMP Stream\\s*\\|\\s*(.*?)\\s*\\|\\s*API\\s*$/i); return m ? m[1] : String(titre || '').trim(); };\nfunction famille(sport) {\n  const s = norm(sport);\n  if (/FOOT|FUTSAL/.test(s)) return 'FOOTBALL';\n  if (/BASKET/.test(s)) return 'BASKET';\n  if (/HAND/.test(s)) return 'HANDBALL';\n  if (/RUGBY/.test(s)) return 'RUGBY';\n  if (/TENNIS|PING/.test(s)) return 'TENNIS';\n  return 'AUTRE';\n}\n\n// Heure de Paris sans bibliothèque externe\nconst FMT = new Intl.DateTimeFormat('fr-FR', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });\nfunction paris(date) {\n  const p = Object.fromEntries(FMT.formatToParts(date).map((x) => [x.type, x.value]));\n  return { y: +p.year, m: +p.month, d: +p.day, H: +p.hour, M: +p.minute };\n}\nconst pad = (n) => String(n).padStart(2, '0');\nconst jour = (p) => `${pad(p.d)}/${pad(p.m)}/${p.y}`;\nconst horo = (date) => { const p = paris(date); return `${jour(p)} ${pad(p.H)}:${pad(p.M)}`; };\n// « 21/11/2026 » + « 18:30 » (heure de Paris) -> Date\nfunction dateParis(dateTxt, heureTxt) {\n  const d = String(dateTxt || '').match(/(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})/);\n  const h = String(heureTxt || '').match(/(\\d{1,2})[:hH](\\d{2})/);\n  if (!d || !h) return null;\n  const guess = Date.UTC(+d[3], +d[2] - 1, +d[1], +h[1], +h[2]);\n  const p = paris(new Date(guess));\n  const decalage = Date.UTC(p.y, p.m - 1, p.d, p.H, p.M) - guess;   // +1 h ou +2 h\n  return new Date(guess - decalage);\n}\nfunction lire(nom) {\n  try { return $(nom).all().map((i) => i.json); } catch (e) { return null; }   // nœud non exécuté\n}\nconst vide = (o) => !o || !Object.keys(o).length;\n\n// ---------- Données d'entrée ----------\nconst maintenant = new Date();\nconst aujourdhui = jour(paris(maintenant));\nconst MAJ = horo(maintenant);\n\nconst planning = (lire('Planning (à venir D+)') || []).filter((r) => !vide(r));\nconst clesSheet = (lire('Clés de diffusion') || []).filter((r) => r.STREAM_ID);\nconst precedent = (lire('Flux précédent') || []).filter((r) => !vide(r) && r.DATE === aujourdhui);\nconst prevParMatch = new Map(precedent.filter((r) => r.ID_MATCH).map((r) => [r.ID_MATCH, r]));\nconst prevParCle = new Map(precedent.filter((r) => !r.ID_MATCH && r.STREAM_ID).map((r) => [r.STREAM_ID, r]));\n\n// ---------- YouTube, chaîne par chaîne ----------\nconst flux = [];\nconst streams = new Map();       // id -> { s, chaine }\nconst lives = [];                // liveBroadcasts (en direct + à venir)\nconst erreurs = [];\n\nconst erreurDe = (rep) => {\n  if (!rep || !rep.length) return 'aucune réponse';\n  const e = rep.find((r) => r.error);\n  if (!e) return '';\n  const err = e.error;\n  return typeof err === 'string' ? err : (err.message || err.description || JSON.stringify(err)).slice(0, 300);\n};\n\nCHAINES.forEach((c) => {\n  const rs = lire('YT clés — ' + c.noeud);\n  const rd = lire('YT en direct — ' + c.noeud);\n  const ra = lire('YT à venir — ' + c.noeud);\n  const err = erreurDe(rs);\n  if (err) { erreurs.push({ chaine: c.nom, msg: err }); return; }\n  rs.forEach((r) => (r.items || []).forEach((s) => streams.set(s.id, { s, chaine: c })));\n  if (rs[rs.length - 1].nextPageToken) erreurs.push({ chaine: c.nom, msg: 'Plus de 300 clés de diffusion : seules les 300 premières sont suivies.', info: true });\n  [rd, ra].forEach((rep) => {\n    if (erreurDe(rep)) { erreurs.push({ chaine: c.nom, msg: 'Lives : ' + erreurDe(rep), info: true }); return; }\n    rep.forEach((r) => (r.items || []).forEach((b) => lives.push({ b, chaine: c })));\n  });\n});\n\n// ---------- Clés de diffusion (onglet CLÉS DE DIFFUSION) ----------\nconst clesParId = new Map(clesSheet.map((k) => [k.STREAM_ID, k]));\nconst cles = [];\nstreams.forEach(({ s, chaine }, id) => {\n  const k = clesParId.get(id);\n  const recu = s.status && s.status.streamStatus === 'active';\n  if (k) {\n    cles.push({ ...k, CHAINE: chaine.nom, NOM_CLE: s.snippet.title, VU_LE: recu ? MAJ : (k.VU_LE || '') });\n  } else {\n    const nouvelle = { CHAINE: chaine.nom, STREAM_ID: id, NOM_CLE: s.snippet.title, EQUIPES: nomEquipe(s.snippet.title), ACTIF: 'OUI', AJOUTEE_LE: MAJ, VU_LE: recu ? MAJ : '', NOTE: 'Nouvelle clé : vérifier le nom dans EQUIPES' };\n    cles.push(nouvelle);\n    clesParId.set(id, nouvelle);\n  }\n});\n\n// Clés utilisables pour un sport donné\n// Une même équipe peut avoir plusieurs clés : on garde celle qui reçoit un flux, sinon celle qui a un live programmé\nfunction trouverCle(equipe, fam) {\n  let cands = [];\n  clesParId.forEach((k, id) => {\n    if (norm(k.ACTIF) === 'NON') return;\n    const st = streams.get(id);\n    const chaine = st ? st.chaine : CHAINES.find((c) => c.nom === k.CHAINE);\n    if (chaine && chaine.sport && chaine.sport !== fam) return;\n    const noms = String(k.EQUIPES || k.NOM_CLE || '').split(/\\s*\\|\\s*/).filter(Boolean);\n    if (/^RTMP Stream\\s*\\|/i.test(k.EQUIPES || k.NOM_CLE || '')) noms.splice(0, noms.length, nomEquipe(k.EQUIPES || k.NOM_CLE));\n    noms.forEach((n) => {\n      const r = ressemblance(equipe, n);\n      if (r < SEUIL_APPROX) return;\n      if (!cands.length || r > cands[0].score) cands = [{ k, id, score: r }];\n      else if (r === cands[0].score && !cands.some((c) => c.id === id)) cands.push({ k, id, score: r });\n    });\n  });\n  if (cands.length < 2) return cands[0] || null;\n  const actif = (c) => { const st = streams.get(c.id); return st && st.s.status && st.s.status.streamStatus === 'active'; };\n  const liee = (c) => lives.some((l) => l.b.contentDetails && l.b.contentDetails.boundStreamId === c.id);\n  const choix = cands.find(actif) || cands.find(liee) || cands.find((c) => streams.has(c.id)) || cands[0];\n  choix.ids = cands.map((c) => c.id);\n  return choix;\n}\n\n// ---------- Traductions ----------\nconst RECEPTION = { active: 'Reçu', inactive: 'Aucun', ready: 'Prête (rien reçu)', created: 'Créée', error: 'Erreur' };\nconst QUALITE = { good: 'Bonne', ok: 'Correcte', bad: 'Mauvaise', noData: 'Pas de données', revoked: 'Clé révoquée' };\nconst CYCLE = { live: 'En direct', liveStarting: 'Démarrage', testing: 'Test', testStarting: 'Test', ready: 'Prêt', created: 'Programmé', complete: 'Terminé', revoked: 'Supprimé' };\n\nfunction livesDe(streamId, debut) {\n  const liste = lives.filter((l) => l.b.contentDetails && l.b.contentDetails.boundStreamId === streamId);\n  const enDirect = liste.find((l) => /^(live|liveStarting|testing|testStarting)$/.test(l.b.status.lifeCycleStatus));\n  const aVenir = liste.filter((l) => !enDirect || l !== enDirect)\n    .filter((l) => /^(ready|created)$/.test(l.b.status.lifeCycleStatus))\n    .sort((a, b) => Math.abs(new Date(a.b.snippet.scheduledStartTime) - debut) - Math.abs(new Date(b.b.snippet.scheduledStartTime) - debut))[0];\n  return { enDirect, aVenir };\n}\n\n// ---------- Matchs du jour ----------\nconst utilisees = new Set();\nconst matchs = planning\n  .filter((m) => String(m.DATE || '').trim() === aujourdhui)\n  .filter((m) => !/ANNUL|REPORT/.test(norm(m.STATUT)))\n  .filter((m) => !CHAMPIONNATS_IGNORES.includes(norm(m.CHAMPIONNAT)));\n\nmatchs.forEach((m) => {\n  const dom = m['DOMICILE'] || '', ext = m['EXTÉRIEUR'] || m['EXTERIEUR'] || '';\n  const fam = famille(m.SPORT);\n  const debut = dateParis(m.DATE, m.HEURE);\n  const prev = prevParMatch.get(m.ID_MATCH) || {};\n  const ligne = {\n    MAJ, DATE: aujourdhui, HEURE: m.HEURE || '', SPORT: m.SPORT || '', CHAMPIONNAT: m.CHAMPIONNAT || '',\n    DOMICILE: dom, EXTERIEUR: ext, ID_MATCH: m.ID_MATCH || '', ETAT: '', DETAIL: '',\n    CHAINE: '', NOM_CLE: '', STREAM_ID: '', RECEPTION: '', QUALITE: '', PROBLEMES: '', LIVE_YOUTUBE: '',\n    VIDEO_ID: prev.VIDEO_ID || '', SPECTATEURS: '', DEBUT_REEL: prev.DEBUT_REEL || '',\n    PREMIER_SIGNAL: prev.PREMIER_SIGNAL || '', DERNIER_SIGNAL: prev.DERNIER_SIGNAL || '',\n    COUPURES: +prev.COUPURES || 0, LIEN_DPLUS: m.URL || ''\n  };\n  const notes = [];\n\n  // 1) Quelle clé ? D'abord l'équipe à domicile, sinon l'équipe à l'extérieur\n  let trouve = trouverCle(dom, fam);\n  if (!trouve) { trouve = trouverCle(ext, fam); if (trouve) notes.push(\"Clé de l'équipe à l'extérieur\"); }\n  if (!trouve) {\n    ligne.ETAT = 'SANS_CLE';\n    ligne.DETAIL = \"Aucune clé de diffusion associée à cette équipe : ajoute son nom dans la colonne EQUIPES de l'onglet CLÉS DE DIFFUSION.\";\n    flux.push(ligne); return;\n  }\n  if (trouve.score < 1) notes.push(`Rapprochement approximatif avec « ${trouve.k.EQUIPES || trouve.k.NOM_CLE} » : à confirmer dans EQUIPES`);\n  if (utilisees.has(trouve.id)) notes.push('Cette clé sert aussi à un autre match aujourd\\'hui');\n  (trouve.ids || [trouve.id]).forEach((i) => utilisees.add(i));\n  ligne.CHAINE = trouve.k.CHAINE; ligne.NOM_CLE = trouve.k.NOM_CLE; ligne.STREAM_ID = trouve.id;\n\n  const st = streams.get(trouve.id);\n  if (!st) {\n    const errChaine = erreurs.find((e) => e.chaine === trouve.k.CHAINE && !e.info);\n    ligne.ETAT = errChaine ? 'ERREUR_API' : 'SANS_CLE';\n    ligne.DETAIL = errChaine ? `YouTube n'a pas répondu pour ${errChaine.chaine} : ${errChaine.msg}` : \"Cette clé n'existe plus sur YouTube.\";\n    flux.push(ligne); return;\n  }\n\n  // 2) Réception et qualité\n  const s = st.s.status || {};\n  const sante = s.healthStatus || {};\n  const recu = s.streamStatus === 'active';\n  ligne.RECEPTION = RECEPTION[s.streamStatus] || s.streamStatus || '';\n  ligne.QUALITE = recu ? (QUALITE[sante.status] || sante.status || '') : '';\n  const problemes = (sante.configurationIssues || []).filter((i) => i.severity !== 'info');\n  ligne.PROBLEMES = recu ? problemes.map((i) => i.description || i.reason).join(' · ') : '';\n  const degrade = recu && (sante.status === 'bad' || problemes.some((i) => i.severity === 'error'));\n\n  // 3) Live YouTube lié à la clé\n  const { enDirect, aVenir } = livesDe(trouve.id, debut || maintenant);\n  const live = enDirect || aVenir;\n  if (live) {\n    ligne.LIVE_YOUTUBE = CYCLE[live.b.status.lifeCycleStatus] || live.b.status.lifeCycleStatus;\n    ligne.VIDEO_ID = live.b.id;\n    if (live.b.snippet.actualStartTime) ligne.DEBUT_REEL = horo(new Date(live.b.snippet.actualStartTime));\n  } else if (ligne.VIDEO_ID) {\n    ligne.LIVE_YOUTUBE = 'Terminé';\n  }\n\n  // 4) Historique depuis le passage précédent\n  if (recu) {\n    if (!ligne.PREMIER_SIGNAL) ligne.PREMIER_SIGNAL = MAJ;\n    ligne.DERNIER_SIGNAL = MAJ;\n  }\n  const minutes = debut ? (maintenant - debut) / 60000 : null;\n  const duree = DUREE_MIN[fam] || DUREE_MIN.AUTRE;\n  const pendant = minutes !== null && minutes >= -AVANT_MIN && minutes <= duree;\n  if (!recu && prev.RECEPTION === 'Reçu' && pendant) ligne.COUPURES += 1;\n\n  // 5) État\n  if (recu) {\n    if (degrade) { ligne.ETAT = 'DEGRADE'; notes.unshift(`Qualité ${ligne.QUALITE.toLowerCase() || 'dégradée'}${ligne.PROBLEMES ? ' : ' + ligne.PROBLEMES : ''}`); }\n    else if (!enDirect && minutes !== null && minutes >= 0) {\n      ligne.ETAT = 'SANS_LIVE';\n      notes.unshift(aVenir ? `Flux reçu mais le live YouTube n'est pas lancé (${ligne.LIVE_YOUTUBE})` : 'Flux reçu mais aucun live YouTube lié à cette clé : rien n\\'est visible en ligne');\n    } else ligne.ETAT = 'OK';\n    if (!live && minutes !== null && minutes < 0) notes.push('Aucun live YouTube programmé sur cette clé');\n  } else if (minutes === null) {\n    ligne.ETAT = 'ATTENTE'; notes.push('Heure du match inconnue');\n  } else if (minutes < -AVANT_MIN) {\n    ligne.ETAT = 'ATTENTE';\n    if (!live) notes.push('Aucun live YouTube programmé sur cette clé');\n  } else if (minutes <= duree) {\n    ligne.ETAT = ligne.PREMIER_SIGNAL ? 'COUPE' : 'ABSENT';\n    notes.unshift(ligne.PREMIER_SIGNAL ? `Flux coupé depuis ${ligne.DERNIER_SIGNAL.slice(11)}` : (minutes < 0 ? `Coup d'envoi dans ${Math.round(-minutes)} min et aucun flux` : `Match commencé depuis ${Math.round(minutes)} min et aucun flux`));\n  } else {\n    ligne.ETAT = ligne.PREMIER_SIGNAL ? 'TERMINE' : 'NON_RECU';\n  }\n  if (ligne.COUPURES) notes.push(`${ligne.COUPURES} coupure${ligne.COUPURES > 1 ? 's' : ''}`);\n  ligne.DETAIL = notes.join(' · ');\n  flux.push(ligne);\n});\n\n// ---------- Flux reçus hors planning (test, match non programmé…) ----------\nstreams.forEach(({ s, chaine }, id) => {\n  if (utilisees.has(id) || !s.status || s.status.streamStatus !== 'active') return;\n  const prev = prevParCle.get(id) || {};\n  const { enDirect } = livesDe(id, maintenant);\n  const k = clesParId.get(id) || {};\n  flux.push({\n    MAJ, DATE: aujourdhui, HEURE: '', SPORT: chaine.sport ? chaine.sport.charAt(0) + chaine.sport.slice(1).toLowerCase() : '', CHAMPIONNAT: '',\n    DOMICILE: nomEquipe(k.EQUIPES || s.snippet.title), EXTERIEUR: '', ID_MATCH: '', ETAT: 'HORS_PLANNING',\n    DETAIL: 'Flux reçu sur une clé qui n\\'a pas de match aujourd\\'hui dans « à venir D+ »',\n    CHAINE: chaine.nom, NOM_CLE: s.snippet.title, STREAM_ID: id,\n    RECEPTION: 'Reçu', QUALITE: QUALITE[(s.status.healthStatus || {}).status] || '', PROBLEMES: '',\n    LIVE_YOUTUBE: enDirect ? CYCLE[enDirect.b.status.lifeCycleStatus] : '', VIDEO_ID: enDirect ? enDirect.b.id : '',\n    SPECTATEURS: '', DEBUT_REEL: enDirect && enDirect.b.snippet.actualStartTime ? horo(new Date(enDirect.b.snippet.actualStartTime)) : '',\n    PREMIER_SIGNAL: prev.PREMIER_SIGNAL || MAJ, DERNIER_SIGNAL: MAJ, COUPURES: 0, LIEN_DPLUS: ''\n  });\n});\n\n// ---------- Erreurs d'API ----------\nerreurs.forEach((e) => flux.push({\n  MAJ, DATE: aujourdhui, HEURE: '', SPORT: '', CHAMPIONNAT: '', DOMICILE: '', EXTERIEUR: '', ID_MATCH: '',\n  ETAT: e.info ? 'INFO' : 'ERREUR_API', DETAIL: e.msg, CHAINE: e.chaine, NOM_CLE: '', STREAM_ID: '', RECEPTION: '',\n  QUALITE: '', PROBLEMES: '', LIVE_YOUTUBE: '', VIDEO_ID: '', SPECTATEURS: '', DEBUT_REEL: '',\n  PREMIER_SIGNAL: '', DERNIER_SIGNAL: '', COUPURES: '', LIEN_DPLUS: ''\n}));\n\nflux.sort((a, b) => (a.HEURE || '99').localeCompare(b.HEURE || '99') || a.DOMICILE.localeCompare(b.DOMICILE, 'fr'));\nconst videoIds = [...new Set(flux.filter((f) => f.LIVE_YOUTUBE === 'En direct' && f.VIDEO_ID).map((f) => f.VIDEO_ID))].slice(0, 50);\n\nreturn [{ json: { flux, cles, videoIds, precedent: precedent.map((r) => ({ ID_MATCH: r.ID_MATCH, STREAM_ID: r.STREAM_ID, ETAT: r.ETAT })) } }];\n"
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000028",
+      "position": [
+        2660,
+        0
+      ],
+      "name": "Lives en cours ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.videoIds.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000029",
+      "position": [
+        2880,
+        -100
+      ],
+      "name": "Spectateurs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "liveStreamingDetails"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json.videoIds.join(',') }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000030",
+      "position": [
+        3100,
+        0
+      ],
+      "name": "Lignes FLUX LIVE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Ajoute le nombre de spectateurs (si des lives sont en cours) puis sort une ligne par match\nconst res = $('Analyser les flux').first().json;\nconst vues = new Map();\ntry {\n  $('Spectateurs').all().forEach((i) => (i.json.items || []).forEach((v) => {\n    const d = v.liveStreamingDetails || {};\n    vues.set(v.id, d.concurrentViewers ?? '');\n  }));\n} catch (e) { /* aucun live en cours : nœud Spectateurs non exécuté */ }\n// Toujours au moins une ligne : l'onglet est vidé puis réécrit, et le site lit l'heure de la dernière vérification\nif (!res.flux.length) {\n  const t = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' }).format(new Date()).replace(',', '');\n  return [{ json: { MAJ: t, DATE: t.slice(0, 10), ETAT: 'INFO', DETAIL: \"Aucun match Delaunay+ aujourd'hui dans « à venir D+ »\" } }];\n}\nreturn res.flux.map((f) => ({ json: { ...f, SPECTATEURS: vues.has(f.VIDEO_ID) ? String(vues.get(f.VIDEO_ID)) : '' } }));\n"
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000031",
+      "position": [
+        3320,
+        0
+      ],
+      "name": "Vider FLUX LIVE",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2031239987,
+          "mode": "list",
+          "cachedResultName": "FLUX LIVE",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8/edit#gid=2031239987"
+        },
+        "clear": "wholeSheet",
+        "keepFirstRow": true
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000032",
+      "position": [
+        3540,
+        0
+      ],
+      "name": "Écrire FLUX LIVE",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2031239987,
+          "mode": "list",
+          "cachedResultName": "FLUX LIVE",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8/edit#gid=2031239987"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000033",
+      "position": [
+        3430,
+        160
+      ],
+      "name": "Remettre les lignes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// « Vider » ne renvoie pas les lignes : on les reprend du nœud précédent\nreturn $('Lignes FLUX LIVE').all();"
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000034",
+      "position": [
+        3320,
+        -200
+      ],
+      "name": "Alertes (changements)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Prépare un mail seulement quand un match change d'état (nouveau problème ou retour à la normale)\nconst PROBLEME = { ABSENT: '🔴 Aucun flux', COUPE: '🔴 Flux coupé', DEGRADE: '🟠 Flux dégradé', SANS_LIVE: '🟠 Live YouTube pas lancé', ERREUR_API: '⚠️ Erreur YouTube' };\nconst avant = new Map($('Analyser les flux').first().json.precedent.map((p) => [p.ID_MATCH || p.STREAM_ID, p.ETAT]));\nconst lignes = [];\n$input.all().forEach(({ json: f }) => {\n  const cle = f.ID_MATCH || f.STREAM_ID;\n  if (!cle) return;\n  const ancien = avant.get(cle) || '';\n  if (f.ETAT === ancien) return;\n  const match = f.EXTERIEUR ? `${f.DOMICILE} – ${f.EXTERIEUR}` : f.DOMICILE;\n  if (PROBLEME[f.ETAT]) lignes.push(`${PROBLEME[f.ETAT]} — ${f.HEURE} ${match} (${f.CHAINE})${f.DETAIL ? ' : ' + f.DETAIL : ''}`);\n  else if (f.ETAT === 'OK' && PROBLEME[ancien]) lignes.push(`🟢 Rétabli — ${f.HEURE} ${match} (${f.CHAINE})`);\n});\nif (!lignes.length) return [];\nconst alertes = lignes.filter((l) => !l.startsWith('🟢')).length;\nreturn [{ json: {\n  sujet: alertes ? `[Delaunay+] ${alertes} flux à surveiller` : '[Delaunay+] Flux rétablis',\n  texte: lignes.join('\\n') + '\\n\\nCentre de suivi : https://valentindelaunayproductions.github.io/Resultats-delaunay-/#flux'\n} }];\n"
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000035",
+      "position": [
+        3540,
+        -200
+      ],
+      "name": "Mail d'alerte",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "disabled": true,
+      "parameters": {
+        "sendTo": "equipe@delaunayplus.com",
+        "subject": "={{ $json.sujet }}",
+        "emailType": "text",
+        "message": "={{ $json.texte }}",
+        "options": {
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000036",
+      "position": [
+        2660,
+        260
+      ],
+      "name": "Lignes CLÉS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Une ligne par clé de diffusion trouvée sur YouTube (ajout des nouvelles, mise à jour des autres)\nreturn $('Analyser les flux').first().json.cles.map((k) => ({ json: {\n  CHAINE: k.CHAINE || '', STREAM_ID: k.STREAM_ID, NOM_CLE: k.NOM_CLE || '', EQUIPES: k.EQUIPES || '',\n  ACTIF: k.ACTIF || 'OUI', AJOUTEE_LE: k.AJOUTEE_LE || '', VU_LE: k.VU_LE || '', NOTE: k.NOTE || ''\n} }));\n"
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000037",
+      "position": [
+        2880,
+        260
+      ],
+      "name": "Mettre à jour CLÉS DE DIFFUSION",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 353307248,
+          "mode": "list",
+          "cachedResultName": "CLÉS DE DIFFUSION",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V0hQIpJj14_f5STTaLu7B3Zmu7Ql6N7jq1wuSwILSK8/edit#gid=353307248"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "STREAM_ID"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW"
+        }
+      }
+    },
+    {
+      "id": "a0f1c2d3-0000-4000-8000-000000000038",
+      "position": [
+        0,
+        -420
+      ],
+      "name": "Mode d'emploi",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "parameters": {
+        "width": 640,
+        "height": 300,
+        "color": 5,
+        "content": "## Suivi des flux YouTube — Delaunay+\nToutes les 5 min : vendredi 18h–22h, samedi et dimanche 13h–22h (fuseau Europe/Paris).\n\n**À faire une fois :**\n1. Google Cloud : activer **YouTube Data API v3** dans le projet qui sert déjà à n8n.\n2. Créer 7 identifiants **Google OAuth2 API** (scope `https://www.googleapis.com/auth/youtube.readonly`), un par chaîne : à la connexion, choisir la chaîne.\n3. Dans chaque groupe de 3 nœuds « YT … — <chaîne> », choisir l'identifiant de cette chaîne. « Spectateurs » : n'importe lequel.\n4. Nœuds Google Sheets : choisir ton identifiant Sheets habituel.\n5. Lancer « Test manuel », puis compléter la colonne EQUIPES de l'onglet CLÉS DE DIFFUSION.\n6. (Option) Activer « Mail d'alerte » et mettre la bonne adresse.\n\nLa clé de stream elle-même n'est jamais lue (pas de part=cdn) : rien de secret n'arrive dans le Sheet public."
+      }
+    }
+  ],
+  "connections": {
+    "Créneaux de match": {
+      "main": [
+        [
+          {
+            "node": "Planning (à venir D+)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test manuel": {
+      "main": [
+        [
+          {
+            "node": "Planning (à venir D+)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Planning (à venir D+)": {
+      "main": [
+        [
+          {
+            "node": "Clés de diffusion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clés de diffusion": {
+      "main": [
+        [
+          {
+            "node": "Flux précédent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flux précédent": {
+      "main": [
+        [
+          {
+            "node": "YT clés — Football Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT clés — Football Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT en direct — Football Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT en direct — Football Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT à venir — Football Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT à venir — Football Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT clés — Football Normandie National",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT clés — Football Normandie National": {
+      "main": [
+        [
+          {
+            "node": "YT en direct — Football Normandie National",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT en direct — Football Normandie National": {
+      "main": [
+        [
+          {
+            "node": "YT à venir — Football Normandie National",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT à venir — Football Normandie National": {
+      "main": [
+        [
+          {
+            "node": "YT clés — Basket Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT clés — Basket Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT en direct — Basket Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT en direct — Basket Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT à venir — Basket Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT à venir — Basket Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT clés — Basketball Normandie National",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT clés — Basketball Normandie National": {
+      "main": [
+        [
+          {
+            "node": "YT en direct — Basketball Normandie National",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT en direct — Basketball Normandie National": {
+      "main": [
+        [
+          {
+            "node": "YT à venir — Basketball Normandie National",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT à venir — Basketball Normandie National": {
+      "main": [
+        [
+          {
+            "node": "YT clés — Handball Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT clés — Handball Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT en direct — Handball Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT en direct — Handball Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT à venir — Handball Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT à venir — Handball Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT clés — Rugby Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT clés — Rugby Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT en direct — Rugby Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT en direct — Rugby Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT à venir — Rugby Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT à venir — Rugby Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT clés — Tennis Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT clés — Tennis Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT en direct — Tennis Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT en direct — Tennis Normandie": {
+      "main": [
+        [
+          {
+            "node": "YT à venir — Tennis Normandie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YT à venir — Tennis Normandie": {
+      "main": [
+        [
+          {
+            "node": "Analyser les flux",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyser les flux": {
+      "main": [
+        [
+          {
+            "node": "Lives en cours ?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lignes CLÉS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lignes CLÉS": {
+      "main": [
+        [
+          {
+            "node": "Mettre à jour CLÉS DE DIFFUSION",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lives en cours ?": {
+      "main": [
+        [
+          {
+            "node": "Spectateurs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lignes FLUX LIVE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spectateurs": {
+      "main": [
+        [
+          {
+            "node": "Lignes FLUX LIVE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lignes FLUX LIVE": {
+      "main": [
+        [
+          {
+            "node": "Vider FLUX LIVE",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Alertes (changements)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vider FLUX LIVE": {
+      "main": [
+        [
+          {
+            "node": "Remettre les lignes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remettre les lignes": {
+      "main": [
+        [
+          {
+            "node": "Écrire FLUX LIVE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alertes (changements)": {
+      "main": [
+        [
+          {
+            "node": "Mail d'alerte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Paris",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
