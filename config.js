@@ -47,7 +47,7 @@ window.DELAUNAY_CONFIG = {
   // le mot de passe chez Google. apiUrl rempli = le site demande le mot de passe à l'ouverture.
   // Vide = pas d'écran de connexion, et l'Annuaire affiche la marche à suivre. Voir le README.
   annuaire: {
-    apiUrl: ""
+    apiUrl: "https://script.google.com/macros/s/AKfycbw3BD3RwRhjaM0wWZqB9lm7b9R4mcKExu962kwr8gt6kaKhgW65z8oNGxygujZJ1YR5pw/exec"
   },
 
   // Début de la saison en cours : les matchs datés avant sont masqués (ancienne saison).
