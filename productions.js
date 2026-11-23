@@ -162,7 +162,7 @@
     let html = howtoHTML();
     if (state.blogState === "demo") html += `<div class="notice">Articles d'exemple : la passerelle Apps Script n'est pas encore branchée (<code>productions.blog.apiUrl</code> dans config.js). Les boutons ne modifient rien dans le Sheet. Voir le README.</div>`;
     if (state.blogState === "error") html += `<div class="notice notice--error">Impossible de lire les articles depuis le Sheet pour le moment : affichage d'exemples. Vérifie le déploiement Apps Script (README).</div>`;
-    html += `<div class="legend"><span class="legend__item legend__item--ok">Validé : publiable sur delaunayproductions.fr</span><span class="legend__item legend__item--mid">À revoir</span><span class="legend__item legend__item--low">Rejeté</span><span class="legend__item">À relire</span><span class="legend__item legend__item--uniq">⚠ Source unique : à vérifier</span></div>`;
+    html += `<div class="legend"><span class="legend__item legend__item--ok">Validé : publiable sur delaunayproductions.fr</span><span class="legend__item legend__item--mid">À revoir</span><span class="legend__item legend__item--low">Rejeté</span><span class="legend__item legend__item--todo">À relire</span><span class="legend__item legend__item--uniq">⚠ Source unique : à vérifier</span></div>`;
     if (!list.length) {
       $("#content").innerHTML = html + `<div class="empty"><b>Aucun article</b>${all.length ? "Rien ne correspond à ces filtres." : "Le workflow n8n n'a encore rédigé aucun article."}</div>`;
       return;
@@ -170,8 +170,8 @@
     const byDay = [...groupBy(list, (a) => { if (!a.date) return 0; const d = new Date(a.date); d.setHours(0, 0, 0, 0); return d.getTime(); }).entries()];
     html += byDay.map(([t, items]) => {
       const todo = items.filter((a) => a.st === "todo").length;
-      return `<section class="day">
-        <header class="day__head"><h2 class="day__name">${esc(jourLabel(t))}</h2><span class="day__count">${items.length} article${items.length > 1 ? "s" : ""}${todo ? ` · ${todo} à relire` : ""}</span></header>
+      return `<section class="league">
+        <header class="league__head"><h2 class="league__name">${esc(jourLabel(t))}</h2><span class="league__count">${items.length} article${items.length > 1 ? "s" : ""}${todo ? ` · ${todo} à relire` : ""}</span></header>
         <div class="posts">${items.map(postCard).join("")}</div>
       </section>`;
     }).join("");
@@ -179,9 +179,9 @@
   }
 
   const HOWTO = [
-    ["Collecte", "Toutes les 3 h, 7 h – 22 h", "n8n lit la presse spécialisée (Helicomicro, Mediakwest, Sonovision, CB News…), la presse normande et une recherche par thème. Seules les actus de moins de 48 h sont gardées."],
-    ["Tri", "Automatique", "Une actu n'est retenue que si elle correspond à l'un des thèmes suivis (réglementation drone, matériel vidéo, événements en Normandie…). Promotions, tests consommateurs et drones militaires sont écartés."],
-    ["Croisement", "Toutes les 3 h", "Les actus qui parlent du même sujet sont regroupées. Il faut 2 médias différents, sauf pour un média spécialisé noté 4-5 ou un thème secondaire : l'article porte alors l'alerte ⚠ Source unique. Un sujet déjà traité n'est jamais réécrit."],
+    ["Collecte", "Toutes les 3 h, 7 h – 22 h", "n8n lit la presse spécialisée en matériel et en technologies (Helicomicro, DroneDJ, Newsshooter, CineD, Mediakwest, Sonovision, SoundLightUp, Audiofanzine, Siècle Digital…) et une recherche par thème. Seules les actus de moins de 48 h sont gardées."],
+    ["Tri", "Automatique", "Une actu n'est retenue que si elle correspond à une nouveauté technologique suivie : drones, caméras et optiques, montage, son, lumière, live et régie, écrans et immersif, technologies de l'événementiel, IA, réseaux sociaux. Promotions, guides d'achat, nominations et drones militaires sont écartés."],
+    ["Croisement", "Toutes les 3 h", "Les actus qui parlent du même sujet sont regroupées. Il faut 2 médias différents, sauf pour un média spécialisé noté 4-5 ou un thème de priorité 1-2 : l'article porte alors l'alerte ⚠ Source unique. Un sujet déjà traité n'est jamais réécrit."],
     ["Rédaction", "IA, 3 par passage", "Les meilleurs sujets sont rédigés uniquement à partir des faits des sources, citées en bas de l'article, avec une meta description et des mots-clés pour le référencement."],
     ["À vous de choisir", "Ici", "Vert : publiable sur delaunayproductions.fr. Orange : à revoir. Rouge : on ne publie pas. Rien n'est publié automatiquement."]
   ];
@@ -189,7 +189,7 @@
     return `<details class="howto" id="howto" ${state.howtoOpen ? "open" : ""}>
       <summary class="howto__btn">
         <span class="howto__ico" aria-hidden="true">?</span>
-        <span class="howto__txt"><b>Comment ça fonctionne</b><small>De l'actu de la presse spécialisée à l'article prêt à publier</small></span>
+        <span class="howto__txt"><b>Comment ça fonctionne</b><small>De la nouveauté repérée dans la presse spécialisée à l'article prêt à publier</small></span>
         <span class="howto__chev" aria-hidden="true">▾</span>
       </summary>
       <div class="howto__body">
@@ -197,7 +197,7 @@
           ${HOWTO.map(([t, quand, txt], i) => `<li class="howto__step"><span class="howto__num">${i + 1}</span><div><b>${t}</b><em>${quand}</em><p>${txt}</p></div></li>`).join("")}
         </ol>
         <div class="howto__rules">
-          <p><b>Qui passe en premier ?</b> <code>3 × médias (max 3) + fiabilité + 2 × priorité du thème + 2 si moins de 12 h + 4 si le thème n'a pas eu d'article depuis 72 h + 3 si le sujet concerne la Normandie</code>.</p>
+          <p><b>Qui passe en premier ?</b> <code>3 × médias (max 3) + fiabilité + 2 × priorité du thème + 2 si moins de 12 h + 4 si le thème n'a pas eu d'article depuis 72 h</code>.</p>
           <p><b>Un thème à ajouter, un média à suivre ?</b> Tout se règle dans le Sheet <i>Automatisation Article blog Delaunay Productions</i> : onglets Sources, Thèmes, Filtres et Paramètres.</p>
         </div>
       </div>
@@ -210,13 +210,13 @@
     const meta = [a.theme, ilYa(a.date)].filter(Boolean).map(esc).join(" · ");
     return `<article class="post is-${a.st}${a.pending ? " is-pending" : ""}" id="a-${esc(a.id)}" data-id="${esc(a.id)}">
       <div class="post__meta">
-        <span class="pole"><i class="dot dot--${a.pole}"></i>${esc(a.poleTxt)}</span>
-        ${a.normandie ? `<span class="badge badge--nor">Normandie</span>` : ""}
+        <span class="sport sport--${a.pole}"><i class="dot dot--${a.pole}"></i>${esc(a.poleTxt)}</span>
+        ${a.normandie ? `<span class="pill pill--plain">Normandie</span>` : ""}
         <span class="post__info">${meta}</span>
         <span class="pill pill--${a.st}">${a.pending ? "Envoi…" : LABEL[a.st]}</span>
       </div>
       ${a.photo ? `<figure class="post__photo"><img src="${esc(a.photo)}" alt="" loading="lazy">${a.credit ? `<figcaption>© ${esc(a.credit)}</figcaption>` : ""}</figure>` : ""}
-      ${a.nbSources === 1 ? `<div class="post__warn" role="note"><span aria-hidden="true">⚠</span><span><b>Source unique</b> : l'info ne vient que de ${esc((a.sources[0] && a.sources[0].media) || "un seul média")}. À vérifier avant de publier.</span></div>` : ""}
+      ${a.nbSources === 1 ? `<div class="post__warn" role="note"><span aria-hidden="true">⚠</span><span><b>Source unique</b> — l'info ne vient que de ${esc((a.sources[0] && a.sources[0].media) || "un seul média")}. À vérifier avant de publier.</span></div>` : ""}
       <h3 class="post__title">${esc(a.titre)}</h3>
       ${a.chapo ? `<p class="post__chapo">${esc(a.chapo)}</p>` : ""}
       <details class="post__more" data-open-id="${esc(a.id)}" ${open ? "open" : ""}>
@@ -331,11 +331,11 @@
         "Article d'exemple sur la production en direct.",
         "Texte d'exemple. Les articles réels sont rédigés à partir des seuls faits des sources citées.",
         ["Mediakwest : https://www.mediakwest.com/"], "Validé", "", "streaming, broadcast"),
-      art("ART-DP-DEMO-3", 28, "Événementiel", "Événements en Normandie", true,
-        "Exemple : un festival normand mise sur un spectacle de drones",
-        "Article d'exemple sur un événement en Normandie.",
+      art("ART-DP-DEMO-3", 28, "Événementiel; Audiovisuel", "Lumière et éclairage", false,
+        "Exemple : une nouvelle lyre LED pour les scènes d'événement",
+        "Article d'exemple sur une nouveauté lumière.",
         "Texte d'exemple.",
-        ["Ouest-France : https://www.ouest-france.fr/", "Paris-Normandie : https://www.paris-normandie.fr/"], "À revoir", "", "festival, Normandie")
+        ["SoundLightUp : https://www.soundlightup.com/", "Audiofanzine : https://fr.audiofanzine.com/"], "À revoir", "", "lyre LED, éclairage scénique")
     ];
   }
 

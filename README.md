@@ -12,7 +12,7 @@ Site statique qui affiche les scores de tous les championnats, lus directement d
 | `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement, URL du Blog, Sheet du Live |
 | `apps-script/Annuaire.gs` | Passerelle protégée par mot de passe : écran de connexion + onglet Annuaire & inventaire |
 | `apps-script/Blog.gs` | Passerelle à coller dans le Sheet des articles (lecture + boutons du Blog) |
-| `productions.html`, `productions.css`, `productions.js` | Centre de suivi **Delaunay Productions** (fond blanc), ouvert par le bouton ⇄ en haut à droite |
+| `productions.html`, `productions.css`, `productions.js` | Centre de suivi **Delaunay Productions** (même charte et même responsive que Delaunay+, accent blanc), ouvert par le bouton ⇄ en haut à droite |
 | `apps-script/BlogProductions.gs` | Passerelle à coller dans le Sheet des articles Delaunay Productions |
 | `n8n/Delaunay_Productions_A_Collecte.json`, `n8n/Delaunay_Productions_B_Redaction.json` | Workflows n8n du blog Delaunay Productions |
 
@@ -158,15 +158,15 @@ Tant que `blog.apiUrl` est vide, le Blog affiche des articles d'exemple et les b
 
 ## Centre de suivi Delaunay Productions
 
-Le bouton **⇄ Delaunay Productions** en haut à droite du centre de suivi Delaunay+ ouvre `productions.html`, une page séparée aux couleurs de delaunayproductions.fr (fond blanc, texte noir). Le bouton **⇄ Delaunay+** de cette page ramène au centre de suivi Delaunay+. Les deux pages sont indépendantes : seul le mot de passe est partagé (une connexion sur l'une vaut pour l'autre sur le même appareil).
+Le bouton **⇄ Delaunay Productions** en haut à droite du centre de suivi Delaunay+ ouvre `productions.html`, une page séparée qui reprend `style.css` de Delaunay+ (fond noir, texte blanc, même affichage sur mobile) avec un accent blanc au lieu du jaune (`productions.css`). Le bouton **⇄ Delaunay+** de cette page ramène au centre de suivi Delaunay+. Les deux pages sont indépendantes : seul le mot de passe est partagé (une connexion sur l'une vaut pour l'autre sur le même appareil).
 
-Pour l'instant la page contient l'onglet **Blog** : les articles rédigés par les workflows n8n à partir de la presse spécialisée (drone, audiovisuel, événementiel, médias) et de la presse normande. Mêmes boutons que le Blog Delaunay+ (Publier / À revoir / Rejeter, Copier le texte), avec en plus le pôle, le thème, un badge Normandie, la meta description et les mots-clés SEO.
+Pour l'instant la page contient l'onglet **Blog** : les nouveautés technologiques des métiers de Delaunay Productions (drones, caméras et optiques, montage, son, lumière, live et régie, écrans et immersif, technologies de l'événementiel, IA, réseaux sociaux), rédigées par les workflows n8n à partir de la presse spécialisée. Mêmes boutons que le Blog Delaunay+ (Publier / À revoir / Rejeter, Copier le texte), avec en plus le pôle, le thème, la meta description et les mots-clés SEO.
 
 ### Les deux workflows n8n
 
 | Workflow | Quand | Rôle |
 | --- | --- | --- |
-| `n8n/Delaunay_Productions_A_Collecte.json` | toutes les 3 h, 7 h 20 → 22 h 20 | Lit les flux (onglet Sources) et les recherches par thème (onglet Thèmes), garde les actus de moins de 48 h qui correspondent à un thème, écarte les promos et drones militaires (onglet Filtres) et écrit dans **Actus brutes** |
+| `n8n/Delaunay_Productions_A_Collecte.json` | toutes les 3 h, 7 h 20 → 22 h 20 | Lit les flux (onglet Sources) et les recherches par thème (onglet Thèmes), garde les actus de moins de 48 h qui correspondent à un thème, écarte les promos, guides d'achat, nominations et drones militaires (onglet Filtres) et écrit dans **Actus brutes** |
 | `n8n/Delaunay_Productions_B_Redaction.json` | toutes les 3 h, 7 h 40 → 22 h 40 | Regroupe les actus par sujet (Ollama), choisit les 3 meilleurs sujets, lit les articles sources et rédige l'article, la meta description et les mots-clés, puis écrit dans **Articles** au statut « À relire » |
 
 Import : dans n8n, **Workflows → Import from File**, puis vérifie les identifiants Google Sheets et Ollama sur chaque nœud. Les workflows arrivent désactivés : lance **Test manuel** sur A puis sur B, regarde le Sheet, puis active-les.
