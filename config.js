@@ -42,7 +42,7 @@ window.DELAUNAY_CONFIG = {
   // Vide = la page affiche des articles d'exemple. Le mot de passe est le même que pour Delaunay+.
   productions: {
     blog: {
-      apiUrl: ""
+      apiUrl: "https://script.google.com/macros/s/AKfycbyg_mjU44bTNVH160lqulh0kz8JwtO4p2SW2otakejrGONyaWucCaiEu6_DP3j2_A8GWg/exec"
     },
     refreshMinutes: 5
   },
