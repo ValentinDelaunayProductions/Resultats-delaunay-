@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Centre de suivi - Delaunay Productions</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <meta name="description" content="Centre de suivi Delaunay Productions : articles de blog rédigés automatiquement (drone, audiovisuel, événementiel, médias), à relire avant publication">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="productions.css?v=20261123">
+</head>
+<body>
+  <div class="gate" id="gate" hidden>
+    <form class="gate__box" id="gateForm" autocomplete="on">
+      <p class="brand">DELAUNAY <b>PRODUCTIONS</b></p>
+      <h1 class="gate__title">Centre de suivi</h1>
+      <p class="gate__txt">Accès réservé à l'équipe. Même mot de passe que le centre de suivi Delaunay+.</p>
+      <input type="text" name="username" value="equipe" autocomplete="username" hidden>
+      <label class="gate__field">
+        <span class="sr-only">Mot de passe</span>
+        <input id="gatePwd" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+      </label>
+      <button class="gate__btn" type="submit" id="gateBtn">Entrer</button>
+      <p class="gate__err" id="gateErr" role="alert"></p>
+    </form>
+  </div>
+
+  <header class="top">
+    <div class="wrap top__bar">
+      <a class="brand" href="productions.html" aria-label="Delaunay Productions — centre de suivi">DELAUNAY <b>PRODUCTIONS</b></a>
+      <span class="top__tag">Centre de suivi</span>
+      <span class="top__status" id="status" aria-live="polite"></span>
+      <button class="top__logout" id="logout" type="button" hidden title="Se déconnecter de cet appareil">Déconnexion</button>
+      <a class="switch" href="./" title="Basculer vers le centre de suivi Delaunay+">
+        <span class="switch__ico" aria-hidden="true">⇄</span><span class="switch__txt">Delaunay<i>+</i></span>
+      </a>
+    </div>
+    <nav class="wrap nav" role="tablist" aria-label="Sections">
+      <button class="nav__item is-on" role="tab" aria-selected="true" data-view="blog">Blog<small id="navBlog">0</small></button>
+    </nav>
+  </header>
+
+  <main class="wrap main">
+    <section class="intro">
+      <div class="intro__text">
+        <p class="intro__kicker">Audiovisuel · Drone · Médias · Événementiel</p>
+        <h1 class="intro__title">Blog Delaunay Productions</h1>
+        <p class="intro__desc">Les articles rédigés automatiquement à partir de la presse spécialisée, du plus récent au plus ancien. Vert : publiable sur delaunayproductions.fr. Orange : à revoir. Rouge : on ne publie pas. Les articles disparaissent du Sheet au bout de 14 jours.</p>
+      </div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="filters" aria-label="Filtres">
+      <div class="filters__top">
+        <div class="tabs" id="poleTabs" role="tablist" aria-label="Pôles"></div>
+        <div class="filters__tools">
+          <div class="seg" role="group" aria-label="Statut" id="seg"></div>
+          <label class="search">
+            <span class="sr-only">Rechercher un article</span>
+            <input id="search" type="search" placeholder="Rechercher un article…" autocomplete="off">
+          </label>
+        </div>
+      </div>
+      <div class="chips" id="themeChips" aria-label="Thèmes"></div>
+    </section>
+
+    <div id="content" class="content">
+      <div class="loading"><span></span><span></span><span></span></div>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__inner">
+      <span class="brand brand--sm">DELAUNAY <b>PRODUCTIONS</b></span>
+      <span id="updated">—</span>
+    </div>
+  </footer>
+
+  <script src="config.js?v=20261123"></script>
+  <script src="productions.js?v=20261123"></script>
+</body>
+</html>

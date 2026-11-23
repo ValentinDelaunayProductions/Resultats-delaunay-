@@ -1,0 +1,1777 @@
+{
+  "name": "Delaunay Productions | B. Sélection & rédaction des articles de blog",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Articles",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Articles",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "13c25347-eb9b-4826-9391-70bd65367e98",
+      "position": [
+        10464,
+        3392
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœuds « Nettoyage : Actus brutes » et « Nettoyage : Articles »\n// Calcule les lignes à supprimer dans un onglet. Une sortie par ligne, de la DERNIÈRE à la PREMIÈRE :\n// en supprimant par le bas, les numéros des lignes restantes ne bougent pas.\n//   - Actus brutes : doublons (même URL, ou même média + même titre) et actus de plus de N jours\n//   - Articles     : articles de plus de N jours\n// N = « Conservation dans le Sheet » (onglet Paramètres, 14 jours par défaut).\n// Bloc commun recopié en tête des nœuds Code du workflow B (Delaunay Productions)\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst nombre = (cle, defaut) => { const v = parseFloat(String(params[cle] ?? '').replace(',', '.')); return isNaN(v) ? defaut : v; };\nconst NB_MIN_SOURCES = nombre('Nb minimum de sources différentes', 2);\nconst NB_MAX_SOURCES = nombre('Nb maximum de sources par article', 4);\nconst NB_MAX_ARTICLES = nombre(\"Nb max d'articles par passage\", 3);\nconst ATTENTE_H = nombre('Attente si une seule source', 48);\nconst CONSERVATION_J = nombre('Conservation dans le Sheet', 14);\nconst PROMPT = String(params['Prompt de rédaction (IA)'] || '').trim();\nconst FIAB_MIN = nombre('Fiabilité minimum (source unique)', 3);\nconst FIAB_GRAND_MEDIA = nombre('Fiabilité « grand média » (source unique, tous thèmes)', 4);\nconst PLAFOND_MEDIAS = nombre('Plafond médias dans le score', 3);\nconst BONUS_DIVERSITE = nombre('Bonus diversité', 4);\nconst BONUS_NORMANDIE = nombre('Bonus Normandie', 3);\nconst fiab = l => { const f = Number(l['Fiabilité source']); return isNaN(f) || l['Fiabilité source'] === '' ? 3 : f; };\nconst reconnue = l => fiab(l) >= FIAB_MIN;            // les sites inconnus (fiabilité 2) ne comptent pas\nconst prioriteDe = l => Number(l['Priorité thème']) || 1;\n// Source unique acceptée : thème de priorité 1-2, OU grand média (fiabilité ≥ seuil), quel que soit le thème\nconst sourceUniqueOK = (prio, fiabilite) => prio < 3 || (Number(fiabilite) || 0) >= FIAB_GRAND_MEDIA;\n\nconst sansAccentB = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\n// « Ouest-France », « Ouest France » et « ouest-france.fr » = le même média\nconst cleMedia = m => sansAccentB(m).replace(/\\.(fr|com|net|org)$/, '').replace(/^www\\./, '').replace(/[^a-z0-9]/g, '');\nconst cleTitre = t => sansAccentB(t).replace(/[^a-z0-9]+/g, ' ').trim();\nconst cleUrlB = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\n// Deux lignes sont le même article si elles ont la même clé d'URL, ou le même média + le même titre\nconst signatures = r => [String(r['Clé (URL normalisée)'] || ''), cleMedia(r['Média source']) + '|' + cleTitre(r['Titre'])];\nconst RANG_STATUT = { 'Utilisé': 4, 'Doublon': 3, 'Ignoré': 2, 'Nouveau': 1 };\n\n// Actus lues dans le Sheet, sans doublons (la suppression physique est faite par « Nettoyage : Actus brutes »)\nconst actus = (() => {\n  const brutes = $('Lire Actus').all().map(i => i.json).filter(r => r && r['Clé (URL normalisée)']);\n  const vues = new Map();\n  const gardees = [];\n  for (const r of [...brutes].sort((a, b) => (RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0))) {\n    if (signatures(r).some(s => vues.has(s))) continue;\n    signatures(r).forEach(s => vues.set(s, true));\n    gardees.push(r);\n  }\n  return gardees;\n})();\n// Une actu « Nouveau » plus vieille que le délai d'attente n'est plus proposée (elle passe en « Ignoré »)\nconst fraiche = r => { const t = new Date(r['Date publication']).getTime(); return isNaN(t) || Date.now() - t < ATTENTE_H * 3600 * 1000; };\n\nconst ONGLET = 'Actus brutes';\nconst limite = Date.now() - CONSERVATION_J * 24 * 3600 * 1000;\nconst vieux = d => { const t = new Date(d).getTime(); return !isNaN(t) && t < limite; };\n\nconst lignes = $(ONGLET === 'Articles' ? 'Lire Articles' : 'Lire Actus').all().map(i => i.json)\n  .filter(r => r && Number(r.row_number) > 1);\nconst aSupprimer = new Map(); // row_number -> raison\n\nif (ONGLET === 'Articles') {\n  for (const r of lignes) {\n    if (!r['ID article'] && !r['Titre']) continue;\n    if (vieux(r['Date création'])) aSupprimer.set(r.row_number, 'plus de ' + CONSERVATION_J + ' jours');\n  }\n} else {\n  // On garde la ligne au statut le plus avancé (Utilisé > Doublon > Ignoré > Nouveau), puis la plus ancienne\n  const tries = [...lignes].sort((a, b) =>\n    ((RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0)) || (a.row_number - b.row_number));\n  const vues = new Set();\n  for (const r of tries) {\n    if (!r['Clé (URL normalisée)'] && !r['Titre']) continue;\n    const sig = signatures(r).filter(s => s && s !== '|');\n    if (sig.some(s => vues.has(s))) { aSupprimer.set(r.row_number, 'doublon'); continue; }\n    sig.forEach(s => vues.add(s));\n    if (vieux(r['Date publication'] || r['Date collecte'])) aSupprimer.set(r.row_number, 'plus de ' + CONSERVATION_J + ' jours');\n  }\n}\n\nreturn [...aSupprimer.entries()]\n  .sort((a, b) => b[0] - a[0])\n  .map(([ligne, raison]) => ({ json: { ligne, raison } }));\n"
+      },
+      "name": "Nettoyage : Actus brutes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "e81bfabd-caf9-4493-b038-d52192214b81",
+      "position": [
+        10912,
+        3056
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Actus brutes",
+          "mode": "name"
+        },
+        "startIndex": "={{ $json.ligne }}"
+      },
+      "name": "Supprimer doublons & vieilles actus",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "id": "23794b25-eaf9-46cb-bbcf-628ac37f2968",
+      "position": [
+        11200,
+        3056
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœuds « Nettoyage : Actus brutes » et « Nettoyage : Articles »\n// Calcule les lignes à supprimer dans un onglet. Une sortie par ligne, de la DERNIÈRE à la PREMIÈRE :\n// en supprimant par le bas, les numéros des lignes restantes ne bougent pas.\n//   - Actus brutes : doublons (même URL, ou même média + même titre) et actus de plus de N jours\n//   - Articles     : articles de plus de N jours\n// N = « Conservation dans le Sheet » (onglet Paramètres, 14 jours par défaut).\n// Bloc commun recopié en tête des nœuds Code du workflow B (Delaunay Productions)\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst nombre = (cle, defaut) => { const v = parseFloat(String(params[cle] ?? '').replace(',', '.')); return isNaN(v) ? defaut : v; };\nconst NB_MIN_SOURCES = nombre('Nb minimum de sources différentes', 2);\nconst NB_MAX_SOURCES = nombre('Nb maximum de sources par article', 4);\nconst NB_MAX_ARTICLES = nombre(\"Nb max d'articles par passage\", 3);\nconst ATTENTE_H = nombre('Attente si une seule source', 48);\nconst CONSERVATION_J = nombre('Conservation dans le Sheet', 14);\nconst PROMPT = String(params['Prompt de rédaction (IA)'] || '').trim();\nconst FIAB_MIN = nombre('Fiabilité minimum (source unique)', 3);\nconst FIAB_GRAND_MEDIA = nombre('Fiabilité « grand média » (source unique, tous thèmes)', 4);\nconst PLAFOND_MEDIAS = nombre('Plafond médias dans le score', 3);\nconst BONUS_DIVERSITE = nombre('Bonus diversité', 4);\nconst BONUS_NORMANDIE = nombre('Bonus Normandie', 3);\nconst fiab = l => { const f = Number(l['Fiabilité source']); return isNaN(f) || l['Fiabilité source'] === '' ? 3 : f; };\nconst reconnue = l => fiab(l) >= FIAB_MIN;            // les sites inconnus (fiabilité 2) ne comptent pas\nconst prioriteDe = l => Number(l['Priorité thème']) || 1;\n// Source unique acceptée : thème de priorité 1-2, OU grand média (fiabilité ≥ seuil), quel que soit le thème\nconst sourceUniqueOK = (prio, fiabilite) => prio < 3 || (Number(fiabilite) || 0) >= FIAB_GRAND_MEDIA;\n\nconst sansAccentB = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\n// « Ouest-France », « Ouest France » et « ouest-france.fr » = le même média\nconst cleMedia = m => sansAccentB(m).replace(/\\.(fr|com|net|org)$/, '').replace(/^www\\./, '').replace(/[^a-z0-9]/g, '');\nconst cleTitre = t => sansAccentB(t).replace(/[^a-z0-9]+/g, ' ').trim();\nconst cleUrlB = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\n// Deux lignes sont le même article si elles ont la même clé d'URL, ou le même média + le même titre\nconst signatures = r => [String(r['Clé (URL normalisée)'] || ''), cleMedia(r['Média source']) + '|' + cleTitre(r['Titre'])];\nconst RANG_STATUT = { 'Utilisé': 4, 'Doublon': 3, 'Ignoré': 2, 'Nouveau': 1 };\n\n// Actus lues dans le Sheet, sans doublons (la suppression physique est faite par « Nettoyage : Actus brutes »)\nconst actus = (() => {\n  const brutes = $('Lire Actus').all().map(i => i.json).filter(r => r && r['Clé (URL normalisée)']);\n  const vues = new Map();\n  const gardees = [];\n  for (const r of [...brutes].sort((a, b) => (RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0))) {\n    if (signatures(r).some(s => vues.has(s))) continue;\n    signatures(r).forEach(s => vues.set(s, true));\n    gardees.push(r);\n  }\n  return gardees;\n})();\n// Une actu « Nouveau » plus vieille que le délai d'attente n'est plus proposée (elle passe en « Ignoré »)\nconst fraiche = r => { const t = new Date(r['Date publication']).getTime(); return isNaN(t) || Date.now() - t < ATTENTE_H * 3600 * 1000; };\n\nconst ONGLET = 'Articles';\nconst limite = Date.now() - CONSERVATION_J * 24 * 3600 * 1000;\nconst vieux = d => { const t = new Date(d).getTime(); return !isNaN(t) && t < limite; };\n\nconst lignes = $(ONGLET === 'Articles' ? 'Lire Articles' : 'Lire Actus').all().map(i => i.json)\n  .filter(r => r && Number(r.row_number) > 1);\nconst aSupprimer = new Map(); // row_number -> raison\n\nif (ONGLET === 'Articles') {\n  for (const r of lignes) {\n    if (!r['ID article'] && !r['Titre']) continue;\n    if (vieux(r['Date création'])) aSupprimer.set(r.row_number, 'plus de ' + CONSERVATION_J + ' jours');\n  }\n} else {\n  // On garde la ligne au statut le plus avancé (Utilisé > Doublon > Ignoré > Nouveau), puis la plus ancienne\n  const tries = [...lignes].sort((a, b) =>\n    ((RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0)) || (a.row_number - b.row_number));\n  const vues = new Set();\n  for (const r of tries) {\n    if (!r['Clé (URL normalisée)'] && !r['Titre']) continue;\n    const sig = signatures(r).filter(s => s && s !== '|');\n    if (sig.some(s => vues.has(s))) { aSupprimer.set(r.row_number, 'doublon'); continue; }\n    sig.forEach(s => vues.add(s));\n    if (vieux(r['Date publication'] || r['Date collecte'])) aSupprimer.set(r.row_number, 'plus de ' + CONSERVATION_J + ' jours');\n  }\n}\n\nreturn [...aSupprimer.entries()]\n  .sort((a, b) => b[0] - a[0])\n  .map(([ligne, raison]) => ({ json: { ligne, raison } }));\n"
+      },
+      "name": "Nettoyage : Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "90da2e00-3bcf-46ac-b220-6fbce8e780f3",
+      "position": [
+        10912,
+        3248
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Articles",
+          "mode": "name"
+        },
+        "startIndex": "={{ $json.ligne }}"
+      },
+      "name": "Supprimer vieux articles",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "id": "6a9715bc-8c9d-492b-ad5f-2c30fcf76867",
+      "position": [
+        11200,
+        3248
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Marquer les doublons »\n// Les actus d'un événement déjà couvert par un article passent en « Doublon »,\n// avec l'ID de l'article existant : elles ne seront plus jamais reproposées.\nconst sortie = [];\nfor (const it of $('Scorer & sélectionner').all()) {\n  const e = it.json;\n  if (e.aRediger !== false) continue;\n  for (const cle of e.cles || []) {\n    sortie.push({\n      json: {\n        'Clé (URL normalisée)': cle,\n        'ID événement': e.idEvenement,\n        'Statut': 'Doublon',\n        'Article lié (ID)': e.doublonDe,\n        'Score événement': e.score,\n      },\n    });\n  }\n}\nreturn sortie;\n"
+      },
+      "name": "Marquer les doublons",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "executeOnce": true,
+      "id": "0b4dda62-a947-4db6-b3c5-53e921cdf69a",
+      "position": [
+        11712,
+        3648
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Actus brutes",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "Clé (URL normalisée)"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "name": "Passer en Doublon",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "id": "930ea8e3-55e0-4831-9833-ee42078fab99",
+      "position": [
+        11936,
+        3648
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## B. Sélection & rédaction Delaunay Productions\n\n1. Sur les nœuds **Google Sheets**, vérifie l'identifiant Google. Les **2 nœuds IA** utilisent Ollama (gemma4:31b) comme Delaunay+.\n2. Lance **Test manuel** quand l'onglet Actus brutes contient des actus.\n\n**Nettoyage** : à chaque lancement, suppression des doublons d'Actus brutes, des actus et des articles de plus de 14 jours.\n**Anti-doublon** : un sujet déjà couvert (même source, ou même sujet du même thème dans les 72 h) passe en « Doublon » sans appel IA.\n\n**Logique** : 2 médias différents sur le même sujet, ou 1 seul si le thème est de priorité 1-2 ou si le média est noté 4-5. Les meilleurs scores (3 par passage) sont rédigés avec meta description et mots-clés SEO, puis arrivent dans l'onglet **Articles** au statut « À relire ».\n\nPassage automatique toutes les 3 h (7 h 40 → 22 h 40), après la collecte et hors des passages Delaunay+ sur Ollama. Rien n'est publié automatiquement.",
+        "height": 560,
+        "width": 640
+      },
+      "name": "Note 051b",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "id": "7ab5db4a-bf0d-458b-a340-612eba62eddb",
+      "position": [
+        9728,
+        2480
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "40 7-22/3 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Planification",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "id": "abd0a7eb-f44e-4ee5-93ad-fde8e16c90d7",
+      "position": [
+        9568,
+        3392
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Voici des actualités récentes sur le thème « {{ $json.theme }} » ({{ $json.pole }}).\nRegroupe celles qui parlent du MÊME sujet précis (même produit, même annonce, même texte réglementaire, même événement, même tournage). Deux articles du même thème mais sur des sujets différents vont dans des groupes différents. Chaque id apparaît dans un seul groupe.\nRéponds UNIQUEMENT avec un JSON valide, sans texte autour, de la forme :\n{\"evenements\":[{\"sujet\":\"résumé en 10 mots maximum\",\"ids\":[\"a1\",\"a3\"]}]}\n\nActualités :\n{{ JSON.stringify($json.liste, null, 1) }}"
+      },
+      "name": "IA : regrouper en sujets",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "id": "c2d5a76c-c12f-4709-b358-5e0b36cfb0e6",
+      "position": [
+        11136,
+        3440
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; DelaunayProductionsBot/1.0)"
+            }
+          ]
+        },
+        "options": {
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "name": "Lire chaque article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "id": "44669ece-4243-4c73-bd88-e123586b9d17",
+      "position": [
+        11936,
+        3456
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}\n\nLONGUEUR : {{ $json.consigneLongueur }}\n\nFIN D'ARTICLE : {{ $json.consigneMarque }}\n\nThème : {{ $json.theme }} ({{ $json.pole }})\nSujet : {{ $json.sujet }}\n{{ $json.angle ? 'Angle éditorial : ' + $json.angle : '' }}\n{{ $json.normandie ? 'Le sujet concerne la Normandie : mets-le en avant si les sources le permettent.' : '' }}\n\nSOURCES — {{ $json.nbTextesComplets }} texte(s) complet(s) sur {{ $json.sources.length }}. Quand texteComplet = false, on n'a que le titre et le chapô : n'en tire que ce qui y est écrit. Une source en anglais se rédige en français.\n{{ JSON.stringify($json.sources.map(s => ({ media: s.media, titre: s.titre, texteComplet: s.texteComplet, texte: s.texte })), null, 1) }}\n\nAvant de répondre, relis-toi : chaque fait vient des sources (sinon supprime-le), la première phrase dit ce qui est nouveau, et le lecteur comprend ce que cela change pour lui.\nRéponds UNIQUEMENT avec un JSON valide, sans texte autour :\n{\"titre\":\"...\",\"chapo\":\"...\",\"corps\":\"paragraphes séparés par une ligne vide, sans bloc Sources\",\"metaDescription\":\"150 caractères maximum\",\"motsCles\":\"mot-clé 1, mot-clé 2, mot-clé 3\"}"
+      },
+      "name": "IA : rédiger l'article",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "id": "dd812286-e98b-4e20-9c1d-37268aac86be",
+      "position": [
+        12608,
+        3456
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "gemma4:31b",
+        "options": {
+          "temperature": 0.6,
+          "numCtx": 16384
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        12688,
+        3632
+      ],
+      "id": "4a44abf8-4920-4ca9-80ca-8b477d6396e8",
+      "name": "Ollama Model2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "CDASPHsnHgZrJxPn",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gemma4:31b",
+        "options": {
+          "temperature": 0.2,
+          "numCtx": 8192
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        11216,
+        3680
+      ],
+      "id": "1b255f13-157b-4d7a-884f-3629e2d8f1ae",
+      "name": "Ollama Model3",
+      "credentials": {
+        "ollamaApi": {
+          "id": "CDASPHsnHgZrJxPn",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Actus brutes",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Actus",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "fc94f9d2-099d-4bf9-b8ff-5e9fa18723ca",
+      "position": [
+        10688,
+        3392
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Préparer l'article »\n// Entrée : la réponse de l'IA « Rédiger l'article ». Sortie : une ligne pour l'onglet « Articles ».\nconst photos = $('Lire Photos').all().map(i => i.json)\n  .filter(p => p && p['URL image'] && String(p['Autorisation obtenue']).trim() === 'Oui');\n\n// Extrait le JSON de la réponse d'un modèle IA, même s'il a écrit son raisonnement avant\n// (« Thinking Process… », balises <think>…</think>, bloc ```json…```).\n// On cherche en partant de la FIN le dernier objet JSON valide qui contient la clé attendue :\n// la réponse finale vient toujours après le raisonnement.\nconst texteIA = r => {\n  if (!r) return '';\n  const v = r.text ?? r.output ?? r.response ?? r.content ?? '';\n  return typeof v === 'string' ? v : JSON.stringify(v);\n};\nfunction lireJsonIA(brut, cleAttendue) {\n  let s = String(brut || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, ' ').replace(/```(?:json)?/gi, ' ');\n  const valide = o => o && typeof o === 'object' && (!cleAttendue || (o[cleAttendue] !== undefined\n    && !/^\\s*(\\.\\.\\.|…)?\\s*$/.test(typeof o[cleAttendue] === 'string' ? o[cleAttendue] : 'x')));\n  for (let debut = s.lastIndexOf('{'); debut >= 0; debut = s.lastIndexOf('{', debut - 1)) {\n    // fermeture équilibrée (en ignorant les accolades dans les chaînes)\n    let prof = 0, dansChaine = false, echap = false, fin = -1;\n    for (let i = debut; i < s.length; i++) {\n      const c = s[i];\n      if (dansChaine) { if (echap) echap = false; else if (c === '\\\\') echap = true; else if (c === '\"') dansChaine = false; continue; }\n      if (c === '\"') dansChaine = true;\n      else if (c === '{') prof++;\n      else if (c === '}') { prof--; if (prof === 0) { fin = i; break; } }\n    }\n    if (fin < 0) continue;\n    try { const o = JSON.parse(s.slice(debut, fin + 1)); if (valide(o)) return o; } catch (e) { /* on essaie plus haut */ }\n  }\n  return null;\n}\n\n// Longueur minimale du corps (sans le bloc Sources) : réglage « Nb de mots minimum par article » de l'onglet Paramètres\nlet reglages = {};\ntry { reglages = Object.fromEntries($('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])); } catch (e) { /* réglage par défaut */ }\nconst MIN_MOTS = parseInt(reglages['Nb de mots minimum par article'], 10) || 120;\nconst compterMots = t => (String(t || '').match(/[\\p{L}\\p{N}][\\p{L}\\p{N}'’-]*/gu) || []).length;\nconst maintenant = new Date();\nconst horodatage = maintenant.toISOString().slice(0, 16).replace(/[-:T]/g, '');\nconst norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();\n\n// Photo : d'abord une photo du thème, sinon une photo du pôle. On alterne entre les photos disponibles.\nconst choisirPhoto = (ev, rang) => {\n  const duTheme = photos.filter(p => norm(p['Thème (optionnel)']) && norm(p['Thème (optionnel)']) === norm(ev.theme));\n  const poles = String(ev.pole || '').split(/\\s*;\\s*/).map(norm).filter(Boolean);\n  const duPole = photos.filter(p => !norm(p['Thème (optionnel)']) && poles.includes(norm(p['Pôle'])));\n  const liste = duTheme.length ? duTheme : duPole;\n  return liste.length ? liste[(rang + Math.floor(Date.now() / 86400000)) % liste.length] : null;\n};\nconst nettoyerMeta = s => String(s || '').replace(/\\s+/g, ' ').trim().slice(0, 160);\n\nconst sortie = [];\nconst echecs = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  let ev;\n  try { ev = $('Extraire le texte & regrouper').itemMatching(i).json; }\n  catch (e) { ev = ($('Extraire le texte & regrouper').all()[i] || {}).json; }\n  if (!ev || !ev.sources) continue;\n  const brut = texteIA(items[i].json);\n  const a = lireJsonIA(brut, 'titre');\n  if (!a || !a.corps) { // réponse IA inutilisable : on n'écrit rien, mais on le dit\n    echecs.push(`• ${ev.theme} – ${ev.sujet} : ${brut ? 'pas de JSON {titre, chapo, corps} dans la réponse. Fin de la réponse : « …' + brut.slice(-200).replace(/\\s+/g, ' ') + ' »' : 'réponse vide (modèle hors ligne ou erreur IA)'}`);\n    continue;\n  }\n\n  // Les sources citées viennent de NOS données (pas de l'IA) pour éviter toute URL inventée\n  const sources = ev.sources.map(s => `${s.media} : ${s.url}`);\n  const corps = String(a.corps).trim() + '\\n\\nSources :\\n' + sources.map(s => '- ' + s).join('\\n');\n  const photo = choisirPhoto(ev, i);\n  const nbMots = compterMots(a.corps);\n  const motsCles = Array.isArray(a.motsCles) ? a.motsCles.join(', ') : String(a.motsCles || '');\n\n  sortie.push({\n    json: {\n      'ID article': `ART-DP-${horodatage}-${i + 1}`,\n      'Date création': maintenant.toISOString(),\n      'ID événement': ev.idEvenement,\n      'Titre': String(a.titre || '').trim(),\n      'Chapô': String(a.chapo || '').trim(),\n      \"Corps de l'article\": corps,\n      'Thème': ev.theme,\n      'Pôle': ev.pole || '',\n      'Normandie': ev.normandie ? 'Oui' : 'Non',\n      'Meta description (SEO)': nettoyerMeta(a.metaDescription),\n      'Mots-clés SEO': motsCles.replace(/\\s+/g, ' ').trim(),\n      'Sources citées (média + URL)': sources.join('\\n'),\n      'Nb de sources': ev.sources.length,\n      'Photo (URL)': photo ? photo['URL image'] : '',\n      'Crédit photo': photo ? photo['Crédit'] : '',\n      'Licence photo': photo ? photo['Licence'] : 'Visuel générique',\n      'Statut': 'À relire',\n      'Date publication': '',\n      'URL publication': '',\n      'Relu par': '',\n      'Format': ev.format || '',\n      // champs internes (non écrits dans le Sheet) : tri des articles trop courts\n      _nbMots: nbMots,\n      _garder: nbMots >= MIN_MOTS,\n    },\n  });\n}\nif (echecs.length && !sortie.length) {\n  throw new Error(`Aucun article exploitable (${echecs.length} réponse(s) IA sans JSON).\\n${echecs.join('\\n')}\\n\\n` +\n    `Cause probable : le modèle écrit son raisonnement et n'a pas fini, ou n'a pas terminé par le JSON. ` +\n    `Dans le sous-nœud Ollama : n'active PAS « Format : JSON » ; augmente Context Length (16384) et vérifie qu'Ollama tourne.`);\n}\nif (echecs.length) console.log('Réponses IA ignorées :\\n' + echecs.join('\\n'));\nconst courts = sortie.filter(o => !o.json._garder);\nif (courts.length) console.log(`Articles de moins de ${MIN_MOTS} mots écartés : ` + courts.map(o => `${o.json['Thème']} – ${o.json['Titre']} (${o.json._nbMots} mots)`).join(' | '));\nreturn sortie;\n"
+      },
+      "name": "Préparer l'article",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "ef37e223-eff9-4968-af30-fc15b2664545",
+      "position": [
+        12960,
+        3456
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Scorer & sélectionner »\n// Entrée : la réponse de l'IA « Regrouper en sujets » (un item par thème).\n// Sortie : les sujets à rédiger (2 médias reconnus, ou 1 seul si thème de priorité 1-2 ou grand média) + les doublons.\n// Bloc commun recopié en tête des nœuds Code du workflow B (Delaunay Productions)\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst nombre = (cle, defaut) => { const v = parseFloat(String(params[cle] ?? '').replace(',', '.')); return isNaN(v) ? defaut : v; };\nconst NB_MIN_SOURCES = nombre('Nb minimum de sources différentes', 2);\nconst NB_MAX_SOURCES = nombre('Nb maximum de sources par article', 4);\nconst NB_MAX_ARTICLES = nombre(\"Nb max d'articles par passage\", 3);\nconst ATTENTE_H = nombre('Attente si une seule source', 48);\nconst CONSERVATION_J = nombre('Conservation dans le Sheet', 14);\nconst PROMPT = String(params['Prompt de rédaction (IA)'] || '').trim();\nconst FIAB_MIN = nombre('Fiabilité minimum (source unique)', 3);\nconst FIAB_GRAND_MEDIA = nombre('Fiabilité « grand média » (source unique, tous thèmes)', 4);\nconst PLAFOND_MEDIAS = nombre('Plafond médias dans le score', 3);\nconst BONUS_DIVERSITE = nombre('Bonus diversité', 4);\nconst BONUS_NORMANDIE = nombre('Bonus Normandie', 3);\nconst fiab = l => { const f = Number(l['Fiabilité source']); return isNaN(f) || l['Fiabilité source'] === '' ? 3 : f; };\nconst reconnue = l => fiab(l) >= FIAB_MIN;            // les sites inconnus (fiabilité 2) ne comptent pas\nconst prioriteDe = l => Number(l['Priorité thème']) || 1;\n// Source unique acceptée : thème de priorité 1-2, OU grand média (fiabilité ≥ seuil), quel que soit le thème\nconst sourceUniqueOK = (prio, fiabilite) => prio < 3 || (Number(fiabilite) || 0) >= FIAB_GRAND_MEDIA;\n\nconst sansAccentB = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\n// « Ouest-France », « Ouest France » et « ouest-france.fr » = le même média\nconst cleMedia = m => sansAccentB(m).replace(/\\.(fr|com|net|org)$/, '').replace(/^www\\./, '').replace(/[^a-z0-9]/g, '');\nconst cleTitre = t => sansAccentB(t).replace(/[^a-z0-9]+/g, ' ').trim();\nconst cleUrlB = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\n// Deux lignes sont le même article si elles ont la même clé d'URL, ou le même média + le même titre\nconst signatures = r => [String(r['Clé (URL normalisée)'] || ''), cleMedia(r['Média source']) + '|' + cleTitre(r['Titre'])];\nconst RANG_STATUT = { 'Utilisé': 4, 'Doublon': 3, 'Ignoré': 2, 'Nouveau': 1 };\n\n// Actus lues dans le Sheet, sans doublons (la suppression physique est faite par « Nettoyage : Actus brutes »)\nconst actus = (() => {\n  const brutes = $('Lire Actus').all().map(i => i.json).filter(r => r && r['Clé (URL normalisée)']);\n  const vues = new Map();\n  const gardees = [];\n  for (const r of [...brutes].sort((a, b) => (RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0))) {\n    if (signatures(r).some(s => vues.has(s))) continue;\n    signatures(r).forEach(s => vues.set(s, true));\n    gardees.push(r);\n  }\n  return gardees;\n})();\n// Une actu « Nouveau » plus vieille que le délai d'attente n'est plus proposée (elle passe en « Ignoré »)\nconst fraiche = r => { const t = new Date(r['Date publication']).getTime(); return isNaN(t) || Date.now() - t < ATTENTE_H * 3600 * 1000; };\n\nconst parCle = Object.fromEntries(actus.map(r => [r['Clé (URL normalisée)'], r]));\nconst maintenant = Date.now();\n\n// Angle éditorial et pôle de chaque thème (onglet Thèmes)\nconst infosTheme = {};\ntry {\n  for (const t of $('Lire Thèmes').all().map(i => i.json)) {\n    if (t['Thème']) infosTheme[String(t['Thème']).trim()] = { pole: String(t['Pôle'] || '').trim(), angle: String(t[\"Angle éditorial (pour l'IA)\"] || '').trim() };\n  }\n} catch (e) { /* onglet absent */ }\n\n// Extrait le JSON de la réponse d'un modèle IA, même s'il a écrit son raisonnement avant\n// (« Thinking Process… », balises <think>…</think>, bloc ```json…```).\n// On cherche en partant de la FIN le dernier objet JSON valide qui contient la clé attendue :\n// la réponse finale vient toujours après le raisonnement.\nconst texteIA = r => {\n  if (!r) return '';\n  const v = r.text ?? r.output ?? r.response ?? r.content ?? '';\n  return typeof v === 'string' ? v : JSON.stringify(v);\n};\nfunction lireJsonIA(brut, cleAttendue) {\n  let s = String(brut || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, ' ').replace(/```(?:json)?/gi, ' ');\n  const valide = o => o && typeof o === 'object' && (!cleAttendue || (o[cleAttendue] !== undefined\n    && !/^\\s*(\\.\\.\\.|…)?\\s*$/.test(typeof o[cleAttendue] === 'string' ? o[cleAttendue] : 'x')));\n  for (let debut = s.lastIndexOf('{'); debut >= 0; debut = s.lastIndexOf('{', debut - 1)) {\n    // fermeture équilibrée (en ignorant les accolades dans les chaînes)\n    let prof = 0, dansChaine = false, echap = false, fin = -1;\n    for (let i = debut; i < s.length; i++) {\n      const c = s[i];\n      if (dansChaine) { if (echap) echap = false; else if (c === '\\\\') echap = true; else if (c === '\"') dansChaine = false; continue; }\n      if (c === '\"') dansChaine = true;\n      else if (c === '{') prof++;\n      else if (c === '}') { prof--; if (prof === 0) { fin = i; break; } }\n    }\n    if (fin < 0) continue;\n    try { const o = JSON.parse(s.slice(debut, fin + 1)); if (valide(o)) return o; } catch (e) { /* on essaie plus haut */ }\n  }\n  return null;\n}\n\nconst slug = s => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20);\n// Date + heure dans l'identifiant : deux lancements le même jour ne produisent pas le même ID\nconst jour = new Date().toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-');\n\n// ---------- Articles déjà rédigés (onglet Articles) ----------\n// Un sujet n'est PAS re-rédigé (et ne coûte pas d'appel IA) si :\n//   1. une de ses actus a déjà servi à un article (même URL), ou\n//   2. un article du même thème, écrit dans les 72 h, traite visiblement du même sujet.\nconst MOTS_VIDES = new Set(('le la les un une des du de d l au aux et ou en dans sur pour par avec sans ce cet cette ces son sa ses leur leurs ' +\n  'qui que quoi dont est sont a ont ete etre fait plus moins tres aussi apres avant contre face entre lors depuis ' +\n  'drone drones video videos camera cameras evenement evenements evenementiel nouveau nouvelle nouveaux nouvelles ' +\n  'il elle ils elles on se ne pas nous vous lui y ca').split(' '));\nconst motsDe = (t, theme) => {\n  const exclus = new Set(cleTitre(theme).split(' '));\n  return new Set(cleTitre(t).split(' ').filter(m => m.length > 2 && !MOTS_VIDES.has(m) && !exclus.has(m)));\n};\nconst recouvrement = (a, b) => {\n  if (!a.size || !b.size) return { taux: 0, communs: 0 };\n  let n = 0; a.forEach(m => { if (b.has(m)) n++; });\n  return { taux: n / Math.min(a.size, b.size), communs: n };\n};\nconst articles = $('Lire Articles').all().map(i => i.json).filter(r => r && r['ID article']);\nconst clesDejaUtilisees = new Map(); // clé d'URL -> ID article\nfor (const a of articles) {\n  for (const u of String(a['Sources citées (média + URL)'] || '').match(/https?:\\/\\/\\S+/g) || []) clesDejaUtilisees.set(cleUrlB(u), a['ID article']);\n}\nfor (const r of $('Lire Actus').all().map(i => i.json)) {\n  if (r && r['Article lié (ID)'] && /^ART-/.test(r['Article lié (ID)']) && r['Clé (URL normalisée)']) clesDejaUtilisees.set(r['Clé (URL normalisée)'], r['Article lié (ID)']);\n}\nconst recents = articles.filter(a => Date.now() - new Date(a['Date création']).getTime() < 72 * 3600 * 1000);\nfunction dejaRedige(ev, lignes) {\n  for (const l of lignes) {\n    const k = l['Clé (URL normalisée)'];\n    if (clesDejaUtilisees.has(k)) return { id: clesDejaUtilisees.get(k), raison: 'source déjà utilisée' };\n  }\n  const motsEv = motsDe([ev.sujet, ...lignes.map(l => l['Titre'])].join(' '), ev.theme);\n  for (const a of recents) {\n    if (cleTitre(a['Thème']) !== cleTitre(ev.theme)) continue;\n    const r = recouvrement(motsEv, motsDe(a['Titre'] + ' ' + a['Chapô'], ev.theme));\n    if (r.communs >= 3 && r.taux >= 0.5) return { id: a['ID article'], raison: `même sujet (${Math.round(r.taux * 100)} % de mots communs)` };\n  }\n  return null;\n}\n\n// Thèmes qui n'ont pas eu d'article depuis 72 h : bonus de diversité\nconst themesRecents = new Set(recents.map(a => cleTitre(a['Thème'])));\n\n// ---------- Garde-fou contre les erreurs de regroupement de l'IA ----------\n// Deux actus ne restent ensemble que si leurs titres / chapôs partagent au moins un mot qui compte\n// (marque, modèle, lieu, nom propre, texte réglementaire…). Sinon le groupe est coupé en plusieurs sujets.\nconst MOTS_NEUTRES = new Set(('avec avant apres sans pour dans depuis contre entre sous chez vers leur leurs cette ces sont etait '\n  + 'plus moins tres tout tous toute toutes encore deja aussi mais donc alors comme quand elle elles ils nous vous fait faire '\n  + 'drone drones video videos camera cameras photo photos image images tournage tournages evenement evenements evenementiel '\n  + 'salon salons festival festivals spectacle production productions direct live nouveau nouvelle nouveaux nouvelles annonce '\n  + 'officiel officielle france francais francaise normandie premier premiere dernier derniere grand grande petit petite '\n  + 'semaine weekend week-end lundi mardi mercredi jeudi vendredi samedi dimanche janvier fevrier mars avril juin juillet '\n  + 'aout septembre octobre novembre decembre annee prix test quoi comment pourquoi face point info infos actu actus').split(' '));\nconst sansAcc = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\nfunction motsCles(a, theme) {\n  const motsTheme = new Set(sansAcc(theme).split(/[^a-z0-9]+/));\n  const texte = sansAcc(`${a.titre || ''} ${String(a.extrait || '').slice(0, 160)}`);\n  const mots = new Set();\n  for (const m of texte.split(/[^a-z0-9-]+/)) {\n    for (const p of m.split('-')) if (p.length >= 4 && !MOTS_NEUTRES.has(p) && !motsTheme.has(p) && !/^\\d+$/.test(p)) mots.add(p);\n  }\n  return mots;\n}\nfunction verifierPaquets(paquets, groupe) {\n  const parId = Object.fromEntries((groupe.liste || []).map(a => [a.id, a]));\n  const sortie = [];\n  for (const p of paquets) {\n    const ids = (p.ids || []).filter(id => parId[id]);\n    if (ids.length < 2) { sortie.push(p); continue; }\n    const mots = Object.fromEntries(ids.map(id => [id, motsCles(parId[id], groupe.theme)]));\n    const lies = (x, y) => [...mots[x]].some(m => mots[y].has(m));\n    const restants = new Set(ids);\n    const comps = [];\n    while (restants.size) {\n      const depart = restants.values().next().value;\n      const comp = [depart]; restants.delete(depart);\n      for (let k = 0; k < comp.length; k++) for (const y of [...restants]) if (lies(comp[k], y)) { comp.push(y); restants.delete(y); }\n      comps.push(comp);\n    }\n    if (comps.length === 1) sortie.push(p);\n    else for (const comp of comps) sortie.push({ sujet: parId[comp[0]].titre, ids: comp, coupeParControle: true });\n  }\n  return sortie;\n}\n\n// ---------- Groupes à traiter ----------\n// 1. Réponses de l'IA (thèmes avec plusieurs actus)\nconst groupes = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  let groupe;\n  try { groupe = $('Préparer regroupement').itemMatching(i).json; }\n  catch (e) { groupe = ($('Préparer regroupement').all()[i] || {}).json; } // le nœud IA sort 1 item par entrée, dans l'ordre\n  if (!groupe || !groupe.liste || groupe.vide) continue;\n  const rep = lireJsonIA(texteIA(items[i].json), 'evenements');\n  // Si l'IA a échoué : chaque actu devient son propre sujet\n  const paquets = rep && Array.isArray(rep.evenements) ? rep.evenements : groupe.liste.map(a => ({ sujet: a.titre, ids: [a.id] }));\n  groupes.push({ ...groupe, paquets: verifierPaquets(paquets, groupe), rang: i + 1 });\n}\n// 2. Thèmes avec une seule actu reconnue (pas besoin de l'IA pour regrouper)\nconst dejaGroupes = new Set(groupes.map(g => g.theme));\nconst nouvellesReconnues = actus.filter(r => String(r['Statut']).trim() === 'Nouveau' && r['Thème détecté'] && reconnue(r) && fraiche(r));\nconst parTheme = {};\nfor (const r of nouvellesReconnues) (parTheme[r['Thème détecté']] = parTheme[r['Thème détecté']] || []).push(r);\nlet rangSeul = 100;\nfor (const [theme, lignes] of Object.entries(parTheme)) {\n  if (dejaGroupes.has(theme) || lignes.length !== 1) continue;\n  groupes.push({\n    theme, pole: lignes[0]['Pôle'] || '', rang: ++rangSeul,\n    cles: { a1: lignes[0]['Clé (URL normalisée)'] },\n    paquets: [{ sujet: lignes[0]['Titre'], ids: ['a1'] }],\n  });\n}\n\n// ---------- Construction et score des sujets ----------\nconst evenements = [];\nfor (const groupe of groupes) {\n  const dejaPris = new Set();\n  groupe.paquets.forEach((p, n) => {\n    const lignes = (p.ids || [])\n      .filter(id => groupe.cles[id] && !dejaPris.has(id))\n      .map(id => { dejaPris.add(id); return parCle[groupe.cles[id]]; })\n      .filter(Boolean);\n    if (!lignes.length) return;\n    // un seul article par média (le plus récent), sources inconnues exclues\n    const parMedia = {};\n    for (const l of lignes.filter(reconnue)) {\n      const m = cleMedia(l['Média source']);\n      if (!parMedia[m] || new Date(l['Date publication']) > new Date(parMedia[m]['Date publication'])) parMedia[m] = l;\n    }\n    const sources = Object.values(parMedia).sort((a, b) => fiab(b) - fiab(a)).slice(0, NB_MAX_SOURCES);\n    if (!sources.length) return;\n    const priorite = prioriteDe(sources[0]);\n    // Règle de croisement : 2 médias reconnus, sauf thème de priorité 1-2 ou grand média (source unique acceptée)\n    if (sources.length < NB_MIN_SOURCES && !sourceUniqueOK(priorite, fiab(sources[0]))) return;\n\n    const normandie = lignes.some(l => String(l['Normandie']).trim() === 'Oui');\n    const fiabMoy = sources.reduce((s, l) => s + fiab(l), 0) / sources.length;\n    const plusRecente = Math.max(...sources.map(l => new Date(l['Date publication']).getTime() || 0));\n    const bonusFraicheur = maintenant - plusRecente < 12 * 3600 * 1000 ? 2 : 0;\n    const bonusDiversite = themesRecents.has(cleTitre(groupe.theme)) ? 0 : BONUS_DIVERSITE;\n    const bonusNormandie = normandie ? BONUS_NORMANDIE : 0;\n    const score = Math.round((3 * Math.min(sources.length, PLAFOND_MEDIAS) + fiabMoy + 2 * priorite + bonusFraicheur + bonusDiversite + bonusNormandie) * 10) / 10;\n    const info = infosTheme[groupe.theme] || {};\n\n    const ev = {\n      idEvenement: `EVT-${jour}-${slug(groupe.theme)}-${groupe.rang}${String.fromCharCode(65 + n)}`,\n      theme: groupe.theme,\n      pole: groupe.pole || info.pole || '',\n      angle: info.angle || '',\n      normandie,\n      sujet: p.sujet || sources[0]['Titre'],\n      score,\n      sourceUnique: sources.length === 1,\n      cles: lignes.map(l => l['Clé (URL normalisée)']),\n      sources: sources.map(l => ({\n        media: l['Média source'],\n        url: l['URL'],\n        titre: l['Titre'],\n        extrait: l['Résumé / extrait'] || '',\n      })),\n    };\n    const doublon = dejaRedige(ev, lignes);\n    ev.aRediger = !doublon;\n    if (doublon) { ev.doublonDe = doublon.id; ev.raisonDoublon = doublon.raison; }\n    evenements.push(ev);\n  });\n}\n\n// ---------- Sélection ----------\n// On rédige jusqu'à NB_MAX_ARTICLES par passage ; les autres attendent le passage suivant.\n// Pour varier les sujets, chaque sujet supplémentaire d'un même thème dans le passage perd 8 points.\nconst candidats = evenements.filter(e => e.aRediger);\nconst choisis = [];\nconst parThemeChoisi = {};\nwhile (choisis.length < NB_MAX_ARTICLES && candidats.length) {\n  candidats.sort((a, b) => (b.score - 8 * (parThemeChoisi[b.theme] || 0)) - (a.score - 8 * (parThemeChoisi[a.theme] || 0)));\n  const e = candidats.shift();\n  parThemeChoisi[e.theme] = (parThemeChoisi[e.theme] || 0) + 1;\n  choisis.push(e);\n}\nconst doublons = evenements.filter(e => !e.aRediger);\nreturn [...choisis, ...doublons].map(e => ({ json: e }));\n"
+      },
+      "name": "Scorer & sélectionner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "f36d187f-0705-4470-9044-5826816353be",
+      "position": [
+        11488,
+        3552
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sources",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Sources",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "b8fb9175-8f55-4328-80f5-6ec0ab81e7d8",
+      "position": [
+        10240,
+        3392
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Paramètres",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Paramètres",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "16359231-f516-48f7-92e5-e27c3548cc2d",
+      "position": [
+        9792,
+        3392
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Photos",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Photos",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "e95ccb8e-0399-4164-833b-9d48c52fe3a9",
+      "position": [
+        10016,
+        3392
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Actus brutes",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "Clé (URL normalisée)"
+          ],
+          "schema": [
+            {
+              "id": "Clé (URL normalisée)",
+              "displayName": "Clé (URL normalisée)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date collecte",
+              "displayName": "Date collecte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date publication",
+              "displayName": "Date publication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Titre",
+              "displayName": "Titre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Média source",
+              "displayName": "Média source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Domaine",
+              "displayName": "Domaine",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Thème détecté",
+              "displayName": "Thème détecté",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Pôle",
+              "displayName": "Pôle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Normandie",
+              "displayName": "Normandie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Résumé / extrait",
+              "displayName": "Résumé / extrait",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image (URL)",
+              "displayName": "Image (URL)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Crédit image",
+              "displayName": "Crédit image",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID événement",
+              "displayName": "ID événement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Article lié (ID)",
+              "displayName": "Article lié (ID)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fiabilité source",
+              "displayName": "Fiabilité source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priorité thème",
+              "displayName": "Priorité thème",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Score événement",
+              "displayName": "Score événement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "name": "Passer en Ignoré",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "id": "7369e0e9-c6c9-4966-82bf-0815ab6020f3",
+      "position": [
+        11200,
+        3840
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Articles",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID article",
+              "displayName": "ID article",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date création",
+              "displayName": "Date création",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID événement",
+              "displayName": "ID événement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Titre",
+              "displayName": "Titre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Chapô",
+              "displayName": "Chapô",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Corps de l'article",
+              "displayName": "Corps de l'article",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Thème",
+              "displayName": "Thème",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Pôle",
+              "displayName": "Pôle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Normandie",
+              "displayName": "Normandie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Meta description (SEO)",
+              "displayName": "Meta description (SEO)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Mots-clés SEO",
+              "displayName": "Mots-clés SEO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sources citées (média + URL)",
+              "displayName": "Sources citées (média + URL)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Nb de sources",
+              "displayName": "Nb de sources",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Photo (URL)",
+              "displayName": "Photo (URL)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Crédit photo",
+              "displayName": "Crédit photo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Licence photo",
+              "displayName": "Licence photo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date publication",
+              "displayName": "Date publication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "URL publication",
+              "displayName": "URL publication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Relu par",
+              "displayName": "Relu par",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Format",
+              "displayName": "Format",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "name": "Écrire dans Articles",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "id": "7f55201d-4dcc-4372-8f78-5c66ef1c7814",
+      "position": [
+        13424,
+        3456
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Actus brutes",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "Clé (URL normalisée)"
+          ],
+          "schema": [
+            {
+              "id": "Clé (URL normalisée)",
+              "displayName": "Clé (URL normalisée)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date collecte",
+              "displayName": "Date collecte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date publication",
+              "displayName": "Date publication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Titre",
+              "displayName": "Titre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Média source",
+              "displayName": "Média source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Domaine",
+              "displayName": "Domaine",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Thème détecté",
+              "displayName": "Thème détecté",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Pôle",
+              "displayName": "Pôle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Normandie",
+              "displayName": "Normandie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Résumé / extrait",
+              "displayName": "Résumé / extrait",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image (URL)",
+              "displayName": "Image (URL)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Crédit image",
+              "displayName": "Crédit image",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID événement",
+              "displayName": "ID événement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Article lié (ID)",
+              "displayName": "Article lié (ID)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fiabilité source",
+              "displayName": "Fiabilité source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priorité thème",
+              "displayName": "Priorité thème",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Score événement",
+              "displayName": "Score événement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "name": "Passer en Utilisé",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "id": "cac1f065-7f56-4736-97e4-a08df35baff7",
+      "position": [
+        13872,
+        3456
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Préparer regroupement »\n// Une sortie par thème qui a AU MOINS 2 actus « Nouveau » de sources reconnues : l'IA les regroupe en sujets.\n// Les thèmes qui n'ont qu'une seule actu n'ont pas besoin de l'IA : « Scorer & sélectionner » les traite directement.\n// Bloc commun recopié en tête des nœuds Code du workflow B (Delaunay Productions)\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst nombre = (cle, defaut) => { const v = parseFloat(String(params[cle] ?? '').replace(',', '.')); return isNaN(v) ? defaut : v; };\nconst NB_MIN_SOURCES = nombre('Nb minimum de sources différentes', 2);\nconst NB_MAX_SOURCES = nombre('Nb maximum de sources par article', 4);\nconst NB_MAX_ARTICLES = nombre(\"Nb max d'articles par passage\", 3);\nconst ATTENTE_H = nombre('Attente si une seule source', 48);\nconst CONSERVATION_J = nombre('Conservation dans le Sheet', 14);\nconst PROMPT = String(params['Prompt de rédaction (IA)'] || '').trim();\nconst FIAB_MIN = nombre('Fiabilité minimum (source unique)', 3);\nconst FIAB_GRAND_MEDIA = nombre('Fiabilité « grand média » (source unique, tous thèmes)', 4);\nconst PLAFOND_MEDIAS = nombre('Plafond médias dans le score', 3);\nconst BONUS_DIVERSITE = nombre('Bonus diversité', 4);\nconst BONUS_NORMANDIE = nombre('Bonus Normandie', 3);\nconst fiab = l => { const f = Number(l['Fiabilité source']); return isNaN(f) || l['Fiabilité source'] === '' ? 3 : f; };\nconst reconnue = l => fiab(l) >= FIAB_MIN;            // les sites inconnus (fiabilité 2) ne comptent pas\nconst prioriteDe = l => Number(l['Priorité thème']) || 1;\n// Source unique acceptée : thème de priorité 1-2, OU grand média (fiabilité ≥ seuil), quel que soit le thème\nconst sourceUniqueOK = (prio, fiabilite) => prio < 3 || (Number(fiabilite) || 0) >= FIAB_GRAND_MEDIA;\n\nconst sansAccentB = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\n// « Ouest-France », « Ouest France » et « ouest-france.fr » = le même média\nconst cleMedia = m => sansAccentB(m).replace(/\\.(fr|com|net|org)$/, '').replace(/^www\\./, '').replace(/[^a-z0-9]/g, '');\nconst cleTitre = t => sansAccentB(t).replace(/[^a-z0-9]+/g, ' ').trim();\nconst cleUrlB = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\n// Deux lignes sont le même article si elles ont la même clé d'URL, ou le même média + le même titre\nconst signatures = r => [String(r['Clé (URL normalisée)'] || ''), cleMedia(r['Média source']) + '|' + cleTitre(r['Titre'])];\nconst RANG_STATUT = { 'Utilisé': 4, 'Doublon': 3, 'Ignoré': 2, 'Nouveau': 1 };\n\n// Actus lues dans le Sheet, sans doublons (la suppression physique est faite par « Nettoyage : Actus brutes »)\nconst actus = (() => {\n  const brutes = $('Lire Actus').all().map(i => i.json).filter(r => r && r['Clé (URL normalisée)']);\n  const vues = new Map();\n  const gardees = [];\n  for (const r of [...brutes].sort((a, b) => (RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0))) {\n    if (signatures(r).some(s => vues.has(s))) continue;\n    signatures(r).forEach(s => vues.set(s, true));\n    gardees.push(r);\n  }\n  return gardees;\n})();\n// Une actu « Nouveau » plus vieille que le délai d'attente n'est plus proposée (elle passe en « Ignoré »)\nconst fraiche = r => { const t = new Date(r['Date publication']).getTime(); return isNaN(t) || Date.now() - t < ATTENTE_H * 3600 * 1000; };\n\nconst nouvelles = actus.filter(r => String(r['Statut']).trim() === 'Nouveau' && r['Thème détecté'] && reconnue(r) && fraiche(r));\n\nconst parTheme = {};\nfor (const r of nouvelles) (parTheme[r['Thème détecté']] = parTheme[r['Thème détecté']] || []).push(r);\n\nconst sortie = [];\nfor (const [theme, lignes] of Object.entries(parTheme)) {\n  const medias = new Set(lignes.map(l => cleMedia(l['Média source'])));\n  const eligible = medias.size >= NB_MIN_SOURCES || lignes.some(l => sourceUniqueOK(prioriteDe(l), fiab(l)));\n  if (!eligible || lignes.length < 2) continue;\n  // 40 actus maximum par appel : au-delà, le modèle local se perd. Les plus récentes d'abord.\n  const retenues = [...lignes].sort((a, b) => new Date(b['Date publication']) - new Date(a['Date publication'])).slice(0, 40);\n  const liste = retenues.map((l, k) => ({\n    id: 'a' + (k + 1),\n    titre: l['Titre'],\n    media: l['Média source'],\n    date: l['Date publication'],\n    extrait: String(l['Résumé / extrait'] || '').slice(0, 200),\n  }));\n  sortie.push({\n    json: {\n      theme,\n      pole: retenues[0]['Pôle'] || '',\n      liste,\n      cles: Object.fromEntries(retenues.map((l, k) => ['a' + (k + 1), l['Clé (URL normalisée)']])),\n    },\n  });\n}\n// Aucun thème à regrouper : un élément « vide » pour que la suite du workflow s'exécute quand même\n// (les thèmes à actu unique sont traités dans « Scorer & sélectionner »). L'IA le traite en une seconde.\nif (!sortie.length) sortie.push({ json: { vide: true, theme: '—', pole: '', liste: [{ id: 'a1', titre: '(aucune actu à regrouper)' }], cles: {} } });\nreturn sortie;\n"
+      },
+      "name": "Préparer regroupement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "8725c12b-3e27-4176-b3d2-48358d82d1d6",
+      "position": [
+        10912,
+        3552
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Actus expirées »\n// Les actus restées « Nouveau » au-delà du délai d'attente (pas de 2e source) passent en « Ignoré ».\n// Bloc commun recopié en tête des nœuds Code du workflow B (Delaunay Productions)\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst nombre = (cle, defaut) => { const v = parseFloat(String(params[cle] ?? '').replace(',', '.')); return isNaN(v) ? defaut : v; };\nconst NB_MIN_SOURCES = nombre('Nb minimum de sources différentes', 2);\nconst NB_MAX_SOURCES = nombre('Nb maximum de sources par article', 4);\nconst NB_MAX_ARTICLES = nombre(\"Nb max d'articles par passage\", 3);\nconst ATTENTE_H = nombre('Attente si une seule source', 48);\nconst CONSERVATION_J = nombre('Conservation dans le Sheet', 14);\nconst PROMPT = String(params['Prompt de rédaction (IA)'] || '').trim();\nconst FIAB_MIN = nombre('Fiabilité minimum (source unique)', 3);\nconst FIAB_GRAND_MEDIA = nombre('Fiabilité « grand média » (source unique, tous thèmes)', 4);\nconst PLAFOND_MEDIAS = nombre('Plafond médias dans le score', 3);\nconst BONUS_DIVERSITE = nombre('Bonus diversité', 4);\nconst BONUS_NORMANDIE = nombre('Bonus Normandie', 3);\nconst fiab = l => { const f = Number(l['Fiabilité source']); return isNaN(f) || l['Fiabilité source'] === '' ? 3 : f; };\nconst reconnue = l => fiab(l) >= FIAB_MIN;            // les sites inconnus (fiabilité 2) ne comptent pas\nconst prioriteDe = l => Number(l['Priorité thème']) || 1;\n// Source unique acceptée : thème de priorité 1-2, OU grand média (fiabilité ≥ seuil), quel que soit le thème\nconst sourceUniqueOK = (prio, fiabilite) => prio < 3 || (Number(fiabilite) || 0) >= FIAB_GRAND_MEDIA;\n\nconst sansAccentB = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\n// « Ouest-France », « Ouest France » et « ouest-france.fr » = le même média\nconst cleMedia = m => sansAccentB(m).replace(/\\.(fr|com|net|org)$/, '').replace(/^www\\./, '').replace(/[^a-z0-9]/g, '');\nconst cleTitre = t => sansAccentB(t).replace(/[^a-z0-9]+/g, ' ').trim();\nconst cleUrlB = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\n// Deux lignes sont le même article si elles ont la même clé d'URL, ou le même média + le même titre\nconst signatures = r => [String(r['Clé (URL normalisée)'] || ''), cleMedia(r['Média source']) + '|' + cleTitre(r['Titre'])];\nconst RANG_STATUT = { 'Utilisé': 4, 'Doublon': 3, 'Ignoré': 2, 'Nouveau': 1 };\n\n// Actus lues dans le Sheet, sans doublons (la suppression physique est faite par « Nettoyage : Actus brutes »)\nconst actus = (() => {\n  const brutes = $('Lire Actus').all().map(i => i.json).filter(r => r && r['Clé (URL normalisée)']);\n  const vues = new Map();\n  const gardees = [];\n  for (const r of [...brutes].sort((a, b) => (RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0))) {\n    if (signatures(r).some(s => vues.has(s))) continue;\n    signatures(r).forEach(s => vues.set(s, true));\n    gardees.push(r);\n  }\n  return gardees;\n})();\n// Une actu « Nouveau » plus vieille que le délai d'attente n'est plus proposée (elle passe en « Ignoré »)\nconst fraiche = r => { const t = new Date(r['Date publication']).getTime(); return isNaN(t) || Date.now() - t < ATTENTE_H * 3600 * 1000; };\n\nconst limite = Date.now() - ATTENTE_H * 3600 * 1000;\nreturn actus\n  .filter(r => String(r['Statut']).trim() === 'Nouveau')\n  .filter(r => {\n    const t = new Date(r['Date publication']).getTime();\n    return !isNaN(t) && t < limite;\n  })\n  .map(r => ({ json: { 'Clé (URL normalisée)': r['Clé (URL normalisée)'], 'Statut': 'Ignoré' } }));\n"
+      },
+      "name": "Actus expirées",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "bddc5813-46a8-42d9-8742-0bba4b31cd58",
+      "position": [
+        10912,
+        3840
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Éclater les sources »\n// Une sortie par (événement, source) pour aller lire chaque article,\n// avec le sélecteur CSS propre au site s'il est renseigné dans l'onglet Sources (colonne R).\nconst SELECTEUR_DEFAUT = [\n  'article p',\n  '[itemprop=\"articleBody\"] p',\n  '.article-body p', '.article__body p', '.article-content p', '.article__content p',\n  '.entry-content p', '.post-content p', '.content-article p',\n  'main p',\n].join(', ');\n\nconst hote = u => ((String(u || '').match(/^https?:\\/\\/([^\\/?#]+)/i) || [])[1] || '').replace(/^www\\./i, '').toLowerCase();\nconst selecteurs = $('Lire Sources').all().map(i => i.json)\n  .filter(s => s['Domaine (filtre site:)'] && String(s['Sélecteur article (CSS) – optionnel'] || '').trim())\n  .map(s => ({ domaine: String(s['Domaine (filtre site:)']).replace(/^www\\./, '').toLowerCase(), css: String(s['Sélecteur article (CSS) – optionnel']).trim() }));\n\nconst sortie = [];\nfor (const it of $input.all()) {\n  const e = it.json;\n  if (e.aRediger === false) continue; // déjà couvert par un article : pas de lecture, pas d'appel IA\n  for (const s of e.sources || []) {\n    const h = hote(s.url);\n    const perso = selecteurs.find(x => h === x.domaine || h.endsWith('.' + x.domaine));\n    sortie.push({\n      json: {\n        idEvenement: e.idEvenement,\n        url: s.url,\n        media: s.media,\n        titre: s.titre,\n        extrait: s.extrait,\n        selecteur: perso ? perso.css : SELECTEUR_DEFAUT,\n        selecteurPerso: !!perso,\n      },\n    });\n  }\n}\nreturn sortie;\n"
+      },
+      "name": "Éclater les sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "156756c6-9a62-418d-a388-f1411c4d9c79",
+      "position": [
+        11712,
+        3456
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Extraire le texte & regrouper »\n// Entrées : sortie du nœud HTML « Extraire paragraphes » (+ HTML brut du nœud « Lire chaque article »).\n// Pour chaque article, on prend dans l'ordre :\n//   1. le texte structuré JSON-LD (articleBody), seulement si l'article est en accès libre ;\n//   2. les paragraphes trouvés par le sélecteur CSS du site ;\n//   3. un repli par regex sur les balises <p> ;\n//   4. à défaut, le titre + le chapô du flux (texteComplet = false).\n// On ne contourne jamais un paywall : un article marqué « réservé aux abonnés »\n// est limité à ce que la page affiche publiquement.\n// Bloc commun recopié en tête des nœuds Code du workflow B (Delaunay Productions)\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst nombre = (cle, defaut) => { const v = parseFloat(String(params[cle] ?? '').replace(',', '.')); return isNaN(v) ? defaut : v; };\nconst NB_MIN_SOURCES = nombre('Nb minimum de sources différentes', 2);\nconst NB_MAX_SOURCES = nombre('Nb maximum de sources par article', 4);\nconst NB_MAX_ARTICLES = nombre(\"Nb max d'articles par passage\", 3);\nconst ATTENTE_H = nombre('Attente si une seule source', 48);\nconst CONSERVATION_J = nombre('Conservation dans le Sheet', 14);\nconst PROMPT = String(params['Prompt de rédaction (IA)'] || '').trim();\nconst FIAB_MIN = nombre('Fiabilité minimum (source unique)', 3);\nconst FIAB_GRAND_MEDIA = nombre('Fiabilité « grand média » (source unique, tous thèmes)', 4);\nconst PLAFOND_MEDIAS = nombre('Plafond médias dans le score', 3);\nconst BONUS_DIVERSITE = nombre('Bonus diversité', 4);\nconst BONUS_NORMANDIE = nombre('Bonus Normandie', 3);\nconst fiab = l => { const f = Number(l['Fiabilité source']); return isNaN(f) || l['Fiabilité source'] === '' ? 3 : f; };\nconst reconnue = l => fiab(l) >= FIAB_MIN;            // les sites inconnus (fiabilité 2) ne comptent pas\nconst prioriteDe = l => Number(l['Priorité thème']) || 1;\n// Source unique acceptée : thème de priorité 1-2, OU grand média (fiabilité ≥ seuil), quel que soit le thème\nconst sourceUniqueOK = (prio, fiabilite) => prio < 3 || (Number(fiabilite) || 0) >= FIAB_GRAND_MEDIA;\n\nconst sansAccentB = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\n// « Ouest-France », « Ouest France » et « ouest-france.fr » = le même média\nconst cleMedia = m => sansAccentB(m).replace(/\\.(fr|com|net|org)$/, '').replace(/^www\\./, '').replace(/[^a-z0-9]/g, '');\nconst cleTitre = t => sansAccentB(t).replace(/[^a-z0-9]+/g, ' ').trim();\nconst cleUrlB = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\n// Deux lignes sont le même article si elles ont la même clé d'URL, ou le même média + le même titre\nconst signatures = r => [String(r['Clé (URL normalisée)'] || ''), cleMedia(r['Média source']) + '|' + cleTitre(r['Titre'])];\nconst RANG_STATUT = { 'Utilisé': 4, 'Doublon': 3, 'Ignoré': 2, 'Nouveau': 1 };\n\n// Actus lues dans le Sheet, sans doublons (la suppression physique est faite par « Nettoyage : Actus brutes »)\nconst actus = (() => {\n  const brutes = $('Lire Actus').all().map(i => i.json).filter(r => r && r['Clé (URL normalisée)']);\n  const vues = new Map();\n  const gardees = [];\n  for (const r of [...brutes].sort((a, b) => (RANG_STATUT[b['Statut']] || 0) - (RANG_STATUT[a['Statut']] || 0))) {\n    if (signatures(r).some(s => vues.has(s))) continue;\n    signatures(r).forEach(s => vues.set(s, true));\n    gardees.push(r);\n  }\n  return gardees;\n})();\n// Une actu « Nouveau » plus vieille que le délai d'attente n'est plus proposée (elle passe en « Ignoré »)\nconst fraiche = r => { const t = new Date(r['Date publication']).getTime(); return isNaN(t) || Date.now() - t < ATTENTE_H * 3600 * 1000; };\n\nconst MIN_COMPLET = 600; // nb de caractères minimum pour considérer qu'on a le vrai texte\n\nconst decoder = s => String(s || '')\n  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"')\n  .replace(/&#39;|&rsquo;|&#8217;|&apos;/g, \"'\").replace(/&laquo;/g, '«').replace(/&raquo;/g, '»')\n  .replace(/&#(\\d+);/g, (_, n) => String.fromCharCode(Number(n)));\nconst propre = s => decoder(String(s || '').replace(/<[^>]+>/g, ' ')).replace(/\\s+/g, ' ').trim();\nconst BRUIT = /cookie|abonnez|abonnement|newsletter|javascript|publicit|consentement|partager cet article|lire aussi|à lire également|inscrivez-vous|tous droits réservés|©/i;\nconst garder = p => p.length > 60 && !BRUIT.test(p);\nconst sansDoublons = arr => [...new Set(arr)];\n\nfunction jsonLd(html) {\n  const blocs = [...String(html || '').matchAll(/<script[^>]+application\\/ld\\+json[^>]*>([\\s\\S]*?)<\\/script>/gi)];\n  for (const b of blocs) {\n    let d;\n    try { d = JSON.parse(b[1].trim()); } catch (e) { continue; }\n    const liste = [].concat(d, (d && d['@graph']) || []).flat();\n    for (const o of liste) {\n      if (!o || typeof o !== 'object') continue;\n      const type = [].concat(o['@type'] || []).join(' ');\n      if (!/Article|Posting/i.test(type)) continue;\n      const libre = !(o.isAccessibleForFree === false || o.isAccessibleForFree === 'False' || o.isAccessibleForFree === 'false');\n      return { corps: libre ? propre(o.articleBody || '') : '', libre, description: propre(o.description || '') };\n    }\n  }\n  return null;\n}\n\nfunction regexParagraphes(html) {\n  html = String(html || '').replace(/<(script|style|nav|footer|header|aside|form|figure)[\\s\\S]*?<\\/\\1>/gi, ' ');\n  const zone = (html.match(/<article[\\s\\S]*?<\\/article>/i) || [html])[0];\n  return [...zone.matchAll(/<p[^>]*>([\\s\\S]*?)<\\/p>/gi)].map(m => propre(m[1])).filter(garder);\n}\n\nconst pageBloquee = html => /consent\\.google|cookie-consent|didomi-host|captcha|cf-chl|Access Denied|Just a moment/i.test(String(html || '').slice(0, 5000))\n  && regexParagraphes(html).length < 2;\n\nconst evenements = Object.fromEntries($('Scorer & sélectionner').all()\n  .filter(i => i.json.aRediger !== false)\n  .map(i => [i.json.idEvenement, { ...i.json, sources: [] }]));\nconst bruts = (() => { for (const nom of ['Lire chaque article', 'Lire chaque article1']) { try { return $(nom).all(); } catch (e) { /* nom suivant */ } } return []; })();\nconst eclat = $('Éclater les sources').all();\n\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  let s;\n  try { s = $('Éclater les sources').itemMatching(i).json; } catch (e) { s = (eclat[i] || {}).json; }\n  if (!s || !s.idEvenement) continue;\n  const brut = (bruts[i] && bruts[i].json && typeof bruts[i].json.data === 'string') ? bruts[i].json.data : '';\n\n  let texte = '', methode = '';\n  const ld = brut ? jsonLd(brut) : null;\n  if (ld && ld.corps.length >= MIN_COMPLET) { texte = ld.corps; methode = 'json-ld'; }\n\n  if (!texte) {\n    const paras = [].concat(items[i].json && items[i].json.paragraphes || []).map(propre).filter(garder);\n    const t = sansDoublons(paras).join('\\n');\n    if (t.length >= MIN_COMPLET) { texte = t; methode = s.selecteurPerso ? 'sélecteur du site' : 'sélecteur générique'; }\n  }\n  if (!texte && brut) {\n    const t = sansDoublons(regexParagraphes(brut)).join('\\n');\n    if (t.length >= MIN_COMPLET) { texte = t; methode = 'regex'; }\n  }\n\n  let complet = !!texte;\n  if (!complet) {\n    const morceaux = [s.titre, ld && ld.description, s.extrait].filter(Boolean).map(propre);\n    texte = sansDoublons(morceaux).join('\\n');\n    methode = !brut ? 'page non récupérée' : pageBloquee(brut) ? 'page bloquée (consentement / anti-bot)' : (ld && !ld.libre) ? 'article abonné' : 'texte introuvable';\n  }\n\n  const ev = evenements[s.idEvenement];\n  if (ev) ev.sources.push({ media: s.media, url: s.url, titre: s.titre, texte: texte.slice(0, 5000), texteComplet: complet, methode });\n}\n\n// Longueur adaptée à la matière disponible (un article de blog est plus long qu'une brève de presse)\nconst consigneLongueur = ev => {\n  const complets = ev.sources.filter(s => s.texteComplet);\n  const total = complets.reduce((n, s) => n + s.texte.length, 0);\n  if (ev.sources.length === 1) {\n    const attribution = ` UNE SEULE SOURCE (${ev.sources[0].media}) : n'écris pas « selon ${ev.sources[0].media} » (les sources sont listées à la fin) et ne présente rien comme confirmé par d'autres médias.`;\n    return complets.length\n      ? { format: 'article (source unique)', consigne: 'Écris un article de 300 à 450 mots, en 3 ou 4 paragraphes : ce qui est nouveau, les détails, ce que cela change concrètement.' + attribution }\n      : { format: 'brève (source unique)', consigne: 'Écris une BRÈVE de 130 à 180 mots, en 2 paragraphes. Tu ne disposes que du titre et du chapô : soigne la formulation, mais n\\'ajoute aucun fait.' + attribution };\n  }\n  if (!complets.length) return { format: 'brève', consigne: 'Écris une BRÈVE de 150 à 220 mots, en 2 paragraphes. Tu ne disposes que de titres et de chapôs : soigne la formulation, mais n\\'ajoute aucun fait.' };\n  if (complets.length === 1 && total < 2500) return { format: 'article court', consigne: 'Écris un article de 350 à 500 mots, en 4 paragraphes : ce qui est nouveau, les détails, les réactions ou chiffres, ce que cela change concrètement.' };\n  return { format: 'article', consigne: 'Écris un article de 500 à 750 mots, en 5 à 7 paragraphes : ce qui est nouveau, le contexte donné par les sources, les détails, les citations, ce que cela change concrètement, la suite.' };\n};\n\n// Paragraphe final sur Delaunay Productions (réglage de l'onglet Paramètres)\nconst PRESENTATION = String(params['Présentation Delaunay Productions'] || '').trim();\nconst AVEC_MARQUE = String(params[\"Paragraphe Delaunay Productions en fin d'article\"] || 'Non').trim() === 'Oui' && PRESENTATION;\nconst consigneMarque = AVEC_MARQUE\n  ? `Termine par un court paragraphe (2 phrases maximum) qui relie le sujet aux métiers de Delaunay Productions, en t'appuyant uniquement sur cette présentation : « ${PRESENTATION} ». Aucun chiffre, aucune référence client, aucune promesse, aucun superlatif.`\n  : \"Ne parle pas de Delaunay Productions dans l'article.\";\n\nreturn Object.values(evenements)\n  .filter(e => e.sources.length)\n  .map(e => {\n    const l = consigneLongueur(e);\n    return { json: { ...e, format: l.format, consigneLongueur: l.consigne, consigneMarque, nbTextesComplets: e.sources.filter(s => s.texteComplet).length, prompt: PROMPT } };\n  });\n"
+      },
+      "name": "Extraire le texte & regrouper",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "20b884b5-8a20-43ec-944d-c158514ff3a9",
+      "position": [
+        12384,
+        3456
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Marquer les actus utilisées »\n// Passe en « Utilisé » toutes les actus des événements qui ont donné un article.\nconst articles = $('Préparer l\\'article').all().map(i => i.json).filter(a => a._garder !== false); // les trop courts sont traités à part\nconst evenements = Object.fromEntries($('Scorer & sélectionner').all().map(i => [i.json.idEvenement, i.json]));\n\nconst sortie = [];\nfor (const art of articles) {\n  const ev = evenements[art['ID événement']];\n  if (!ev) continue;\n  for (const cle of ev.cles) {\n    sortie.push({\n      json: {\n        'Clé (URL normalisée)': cle,\n        'ID événement': ev.idEvenement,\n        'Statut': 'Utilisé',\n        'Article lié (ID)': art['ID article'],\n        'Score événement': ev.score,\n      },\n    });\n  }\n}\nreturn sortie;\n"
+      },
+      "name": "Marquer les actus utilisées",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "fc5190d2-586f-49dd-8bf7-06363d0ca7c9",
+      "position": [
+        13648,
+        3456
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "paragraphes",
+              "cssSelector": "={{ $('Éclater les sources').item.json.selecteur }}",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {
+          "trimValues": true,
+          "cleanUpText": true
+        }
+      },
+      "name": "Extraire paragraphes",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "id": "1cef9588-186b-41e2-a9f4-326f634aa222",
+      "position": [
+        12160,
+        3456
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chat.googleapis.com/v1/spaces/ESPACE/messages?key=CLE&token=JETON",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=Articles BLOG Delaunay Productions mis à jour ✅ https://valentindelaunayproductions.github.io/Resultats-delaunay-/productions.html#blog"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        14304,
+        3456
+      ],
+      "id": "8da438f3-711e-4dc6-abf2-f826472115b6",
+      "name": "Prévenir sur Google Chat",
+      "notes": "Colle ici l'URL du webhook Google Chat (non publiée dans le dépôt GitHub)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Un seul message Google Chat, quel que soit le nombre d'articles\nreturn [{ json: {} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14096,
+        3456
+      ],
+      "id": "874f5d70-f6d4-46ae-9499-78cd71d13d8c",
+      "name": "Un seul message",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Garder les articles assez longs »\n// Seuls les articles dont le corps atteint le minimum de mots (onglet Paramètres, 50 par défaut) sont écrits dans « Articles ».\nreturn $input.all().filter(i => i.json._garder !== false);\n"
+      },
+      "name": "Garder les articles assez longs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "f768b36f-d387-488a-a58c-57889b33bfd2",
+      "position": [
+        13200,
+        3456
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Actus des articles trop courts »\n// Les actus d'un article trop court passent en « Ignoré » : sinon elles resteraient « Nouveau »\n// et l'IA réécrirait le même article trop court à chaque passage.\nconst evenements = Object.fromEntries($('Scorer & sélectionner').all().map(i => [i.json.idEvenement, i.json]));\nconst sortie = [];\nfor (const it of $input.all()) {\n  const art = it.json;\n  if (art._garder !== false) continue;\n  const ev = evenements[art['ID événement']];\n  if (!ev) continue;\n  for (const cle of ev.cles || []) {\n    sortie.push({ json: { 'Clé (URL normalisée)': cle, 'Statut': 'Ignoré', 'Article lié (ID)': `Trop court (${art._nbMots} mots)` } });\n  }\n}\nreturn sortie;\n"
+      },
+      "name": "Actus des articles trop courts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "38a1ecea-d311-4180-955b-3db3cfdb070f",
+      "position": [
+        13200,
+        3680
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Thèmes",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Thèmes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "c987c236-53fb-4922-a2a0-c99b74ca05f4",
+      "position": [
+        10240,
+        3600
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "Test manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "id": "4374f11c-a105-477b-8912-0cbc29b62248",
+      "position": [
+        9568,
+        3600
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Lire Articles": {
+      "main": [
+        [
+          {
+            "node": "Lire Actus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nettoyage : Actus brutes": {
+      "main": [
+        [
+          {
+            "node": "Supprimer doublons & vieilles actus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nettoyage : Articles": {
+      "main": [
+        [
+          {
+            "node": "Supprimer vieux articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marquer les doublons": {
+      "main": [
+        [
+          {
+            "node": "Passer en Doublon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IA : rédiger l'article",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IA : regrouper en sujets",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Actus": {
+      "main": [
+        [
+          {
+            "node": "Nettoyage : Actus brutes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Nettoyage : Articles",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Préparer regroupement",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Actus expirées",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer l'article": {
+      "main": [
+        [
+          {
+            "node": "Garder les articles assez longs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Actus des articles trop courts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scorer & sélectionner": {
+      "main": [
+        [
+          {
+            "node": "Éclater les sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Marquer les doublons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Sources": {
+      "main": [
+        [
+          {
+            "node": "Lire Thèmes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Paramètres": {
+      "main": [
+        [
+          {
+            "node": "Lire Photos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Photos": {
+      "main": [
+        [
+          {
+            "node": "Lire Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Écrire dans Articles": {
+      "main": [
+        [
+          {
+            "node": "Marquer les actus utilisées",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer regroupement": {
+      "main": [
+        [
+          {
+            "node": "IA : regrouper en sujets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actus expirées": {
+      "main": [
+        [
+          {
+            "node": "Passer en Ignoré",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Éclater les sources": {
+      "main": [
+        [
+          {
+            "node": "Lire chaque article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraire le texte & regrouper": {
+      "main": [
+        [
+          {
+            "node": "IA : rédiger l'article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marquer les actus utilisées": {
+      "main": [
+        [
+          {
+            "node": "Passer en Utilisé",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraire paragraphes": {
+      "main": [
+        [
+          {
+            "node": "Extraire le texte & regrouper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Passer en Utilisé": {
+      "main": [
+        [
+          {
+            "node": "Un seul message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Garder les articles assez longs": {
+      "main": [
+        [
+          {
+            "node": "Écrire dans Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actus des articles trop courts": {
+      "main": [
+        [
+          {
+            "node": "Passer en Ignoré",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Planification": {
+      "main": [
+        [
+          {
+            "node": "Lire Paramètres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Thèmes": {
+      "main": [
+        [
+          {
+            "node": "Lire Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test manuel": {
+      "main": [
+        [
+          {
+            "node": "Lire Paramètres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA : regrouper en sujets": {
+      "main": [
+        [
+          {
+            "node": "Scorer & sélectionner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA : rédiger l'article": {
+      "main": [
+        [
+          {
+            "node": "Préparer l'article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire chaque article": {
+      "main": [
+        [
+          {
+            "node": "Extraire paragraphes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Un seul message": {
+      "main": [
+        [
+          {
+            "node": "Prévenir sur Google Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Paris",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}

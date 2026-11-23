@@ -1,0 +1,638 @@
+{
+  "name": "Delaunay Productions | A. Collecte des actus (drone, audiovisuel, événementiel)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "20 7-22/3 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Planification",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "id": "5d128d1a-a4ac-477f-9001-e1d0a4bc0cba",
+      "position": [
+        4144,
+        1504
+      ]
+    },
+    {
+      "parameters": {},
+      "name": "Test manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "id": "38bb9db7-8105-4c58-bcb5-eaa38c6a23cc",
+      "position": [
+        4144,
+        1728
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Paramètres",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Paramètres",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "4e80fd79-66fa-4499-9f90-97ba416a99ca",
+      "position": [
+        4384,
+        1600
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sources",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Sources",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "b99b960e-fb89-454d-ace4-147f505e13ec",
+      "position": [
+        4624,
+        1600
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Thèmes",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Thèmes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "b5f4e45c-af4a-4940-974f-304e995f608c",
+      "position": [
+        4864,
+        1600
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow A (Delaunay Productions) — Nœud « Préparer flux »\n// Construit la liste des flux RSS à lire à partir des onglets Sources et Thèmes.\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst modeGoogleNews = String(params['Utiliser Google News (test uniquement)'] || 'Non').trim() === 'Oui';\n\nconst isUrl = u => typeof u === 'string' && /^https?:\\/\\//i.test(u.trim());\nconst host = u => ((String(u || '').match(/^https?:\\/\\/([^\\/?#]+)/i) || [])[1] || '').replace(/^www\\./i, '').toLowerCase();\n\nconst out = [];\nconst vus = new Set();\nconst ajouter = obj => {\n  if (vus.has(obj.url)) return;\n  vus.add(obj.url);\n  out.push({ json: obj });\n};\n\n// 1. Médias (onglet Sources)\n//    Flux natif si « Statut flux » = OK, sinon recherche Google News « site: » (mode test).\n//    Plusieurs flux natifs possibles pour un même média, séparés par un retour à la ligne, un espace ou « ; ».\nfor (const it of $('Lire Sources').all()) {\n  const s = it.json;\n  if (String(s['Actif'] || '').trim() !== 'Oui') continue;\n  const fiabilite = Number(s['Fiabilité (1-5)']) || 3;\n  const natifs = String(s['Flux RSS natif'] || '').trim().split(/[\\s;]+/).filter(isUrl);\n  const statutOK = String(s['Statut flux'] || '').trim() === 'OK';\n  let urls = [];\n  if (natifs.length && statutOK) urls = natifs;\n  else if (modeGoogleNews && isUrl(s['Google News RSS (site:) – auto'])) urls = [s['Google News RSS (site:) – auto']];\n  for (const url of urls) {\n    ajouter({\n      url,\n      type: 'media',\n      media: s['Nom'] || host(url),\n      domaine: s['Domaine (filtre site:)'] || host(url),\n      fiabilite,\n      themeForce: '',\n      themeDefaut: String(s['Thème par défaut (si aucun mot-clé)'] || '').trim(),\n    });\n  }\n}\n\n// 2. Thèmes (onglet Thèmes) : une recherche Google News par thème, en mode test uniquement.\n//    Rotation : les thèmes de priorité 3 sont interrogés à chaque passage, les autres par groupe\n//    (1 groupe sur N par passage), pour ne pas saturer Google.\nif (modeGoogleNews) {\n  const NB_GROUPES = Math.max(1, parseInt(params['Rotation des thèmes (Google News)'], 10) || 3);\n  const memoire = $getWorkflowStaticData('global'); // conservé entre deux exécutions automatiques\n  memoire.passageThemes = (Number(memoire.passageThemes) || 0) + 1;\n  const groupeDuPassage = memoire.passageThemes % NB_GROUPES;\n  let rang = 0;\n  for (const it of $('Lire Thèmes').all()) {\n    const t = it.json;\n    if (String(t['Actif'] || '').trim() !== 'Oui' || !t['Thème']) continue;\n    const phare = (Number(t['Priorité (1-3)']) || 1) >= 3;\n    const auTour = phare || (rang++ % NB_GROUPES) === groupeDuPassage;\n    if (!auTour || !isUrl(t['Google News RSS (auto)'])) continue;\n    ajouter({\n      url: t['Google News RSS (auto)'],\n      type: 'theme',\n      media: '',\n      domaine: 'news.google.com',\n      fiabilite: 3,\n      themeForce: String(t['Thème']).trim(),\n      themeDefaut: '',\n    });\n  }\n}\n\nreturn out;\n"
+      },
+      "name": "Préparer flux",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "5282ffde-d4db-48ce-945b-1db926195a28",
+      "position": [
+        5344,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {}
+      },
+      "name": "Lire les flux RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "id": "25b7212c-3df0-48f8-8a8f-9b12bb850538",
+      "position": [
+        5584,
+        1600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow A (Delaunay Productions) — Nœud « Normaliser & détecter thème »\n// Entrée : les articles renvoyés par le nœud RSS Read.\n// Sortie : une ligne par article pertinent, au format de l'onglet « Actus brutes ».\nconst params = Object.fromEntries(\n  $('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])\n);\nconst fenetreH = parseInt(params['Fenêtre de collecte'], 10) || 48;\nconst maintenant = Date.now();\n\n// ---------- Outils ----------\nconst sansAccent = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, \"'\").toLowerCase();\nconst echapper = s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\nconst contientMot = (texte, motCle) =>\n  new RegExp('(^|[^a-z0-9])' + echapper(motCle) + '([^a-z0-9]|$)').test(texte);\nconst nettoyerHtml = s => String(s || '')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '\"').replace(/&#39;|&rsquo;|&#8217;/g, \"'\")\n  .replace(/\\s+/g, ' ').trim();\n// (pas de « new URL » : indisponible dans certains n8n)\nconst hote = u => ((String(u || '').match(/^https?:\\/\\/([^\\/?#]+)/i) || [])[1] || '').replace(/^www\\./i, '').toLowerCase();\n// clé = domaine + chemin, sans http(s), www, paramètres (?utm=…) ni #\nconst cleUrl = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\nconst listeMots = s => String(s || '').split(';').map(m => sansAccent(m).trim()).filter(Boolean);\n\n// ---------- Normandie ----------\nconst MOTS_NORMANDIE = listeMots(params['Mots-clés Normandie'] || 'normandie; normand; normande');\nconst estNormand = texte => MOTS_NORMANDIE.some(m => contientMot(texte, m));\n\n// ---------- Thèmes ----------\nconst themes = $('Lire Thèmes').all().map(i => i.json)\n  .filter(t => String(t['Actif'] || '').trim() === 'Oui' && t['Thème'])\n  .map(t => ({\n    nom: String(t['Thème']).trim(),\n    pole: String(t['Pôle'] || '').trim(),\n    priorite: Number(t['Priorité (1-3)']) || 1,\n    motsCles: listeMots(t['Mots-clés détection (séparés par ;)']),\n    exclus: listeMots(t['Mots-clés exclus (séparés par ;)']),\n    normandieObligatoire: String(t['Normandie obligatoire'] || '').trim() === 'Oui',\n  }));\nconst themeParNom = Object.fromEntries(themes.map(t => [t.nom, t]));\nconst admissible = (t, texte, normand) => t && !t.exclus.some(m => contientMot(texte, m)) && (!t.normandieObligatoire || normand);\n\n// Score d'un thème = longueur des mots-clés trouvés (un mot-clé inclus dans un autre trouvé ne compte pas :\n// « dji » ne s'ajoute pas à « dji mini ») + 3 × priorité. Le plus haut l'emporte ; à égalité, le premier de l'onglet.\nconst detecterTheme = (texte, normand) => {\n  let meilleur = null;\n  for (const t of themes) {\n    if (!admissible(t, texte, normand)) continue;\n    const trouves = t.motsCles.filter(m => contientMot(texte, m));\n    if (!trouves.length) continue;\n    const utiles = trouves.filter(m => !trouves.some(a => a !== m && a.includes(m)));\n    const score = utiles.reduce((n, m) => n + m.length, 0) + 3 * t.priorite;\n    if (!meilleur || score > meilleur.score) meilleur = { theme: t, score };\n  }\n  return meilleur ? meilleur.theme : null;\n};\n\n// ---------- Sources (pour retrouver le flux d'origine) ----------\nconst flux = $('Préparer flux').all().map(i => i.json);\nconst cleNom = m => sansAccent(m).replace(/\\.(fr|com|net|org)$/, '').replace(/[^a-z0-9]/g, '');\nconst mediasConnus = {};\ntry {\n  for (const s of $('Lire Sources').all().map(i => i.json)) {\n    if (!s['Nom']) continue;\n    const info = { nom: s['Nom'], fiabilite: Number(s['Fiabilité (1-5)']) || 3 };\n    mediasConnus[cleNom(s['Nom'])] = info;\n    for (const morceau of String(s['Nom']).split(/\\s*[\\/(]\\s*/)) if (morceau.length > 3) mediasConnus[cleNom(morceau)] = mediasConnus[cleNom(morceau)] || info;\n  }\n} catch (e) { /* nœud absent */ }\nconst sourceDe = (index, lien) => {\n  try {\n    const s = $('Préparer flux').itemMatching(index);\n    if (s && s.json && s.json.url) return s.json;\n  } catch (e) { /* pas de lien direct, on cherche autrement */ }\n  const h = hote(lien);\n  const parDomaine = flux.find(f => f.domaine && h.endsWith(String(f.domaine).replace(/^www\\./, '')) && !/news\\.google/.test(h));\n  if (parDomaine) return parDomaine;\n  return { type: 'media', media: '', domaine: h, fiabilite: 3, themeForce: '', themeDefaut: '' };\n};\n\n// ---------- Traitement ----------\nconst sortie = [];\nconst dejaVues = new Set();\nconst ecartees = { 'hors fenêtre': 0, 'aucun thème': 0 };\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const a = items[i].json;\n  if (!a || a.error || !a.link || !a.title) continue;\n\n  const src = sourceDe(i, a.link);\n  let titre = nettoyerHtml(a.title);\n  let media = src.media;\n\n  // Google News : le titre se termine par « - Nom du média ». On coupe au DERNIER « espace-tiret-espace ».\n  const viaGoogle = /news\\.google\\.com/.test(a.link);\n  let mediaGoogle = '';\n  if (viaGoogle) {\n    const m = titre.match(/^(.*\\S)\\s+[-–—|]\\s+(.+?)$/);\n    if (m) { titre = m[1].trim(); mediaGoogle = m[2].trim(); }\n  }\n  media = (viaGoogle && mediaGoogle) ? mediaGoogle : (media || mediaGoogle || hote(a.link));\n  const connu = flux.find(f => f.media && cleNom(f.media) === cleNom(media));\n  if (connu) media = connu.media;\n  const sourceConnue = mediasConnus[cleNom(media)];\n  const fiabilite = viaGoogle ? (sourceConnue ? sourceConnue.fiabilite : 2) : (Number(src.fiabilite) || 3);\n  if (sourceConnue) media = sourceConnue.nom;\n\n  const datePub = new Date(a.isoDate || a.pubDate || 0);\n  if (isNaN(datePub) || maintenant - datePub.getTime() > fenetreH * 3600 * 1000) { ecartees['hors fenêtre']++; continue; }\n  if (datePub.getTime() - maintenant > 3600 * 1000) continue; // date dans le futur = suspect\n\n  let extrait = nettoyerHtml(a.contentSnippet || a.content || a.summary || '').slice(0, 600);\n  if (titre && sansAccent(extrait).startsWith(sansAccent(titre))) {\n    const reste = extrait.slice(titre.length).replace(new RegExp('^\\\\s*' + echapper(mediaGoogle || media) + '\\\\s*$', 'i'), '').trim();\n    extrait = reste.length > 40 ? reste : '';\n  }\n  const texte = sansAccent([titre, extrait, (a.categories || []).join(' ')].join(' '));\n  const normand = estNormand(texte);\n\n  // Thème : mots-clés d'abord ; sinon le thème de la recherche Google News ; sinon le thème par défaut de la source\n  let theme = detecterTheme(texte, normand);\n  if (!theme && src.themeForce && admissible(themeParNom[src.themeForce], texte, normand)) theme = themeParNom[src.themeForce];\n  if (!theme && src.themeDefaut && admissible(themeParNom[src.themeDefaut], texte, normand)) theme = themeParNom[src.themeDefaut];\n  if (!theme) { ecartees['aucun thème']++; continue; }\n\n  let image = '';\n  if (a.enclosure && a.enclosure.url && /image|jpe?g|png|webp/i.test((a.enclosure.type || '') + a.enclosure.url)) image = a.enclosure.url;\n  if (!image) {\n    const m = String(a.content || '').match(/<img[^>]+src=[\"']([^\"']+)[\"']/i);\n    if (m) image = m[1];\n  }\n\n  if (dejaVues.has(cleUrl(a.link))) continue;\n  dejaVues.add(cleUrl(a.link));\n  sortie.push({\n    json: {\n      'Clé (URL normalisée)': cleUrl(a.link),\n      'Date collecte': new Date().toISOString(),\n      'Date publication': datePub.toISOString(),\n      'Titre': titre,\n      'URL': a.link,\n      'Média source': media,\n      'Domaine': src.domaine || hote(a.link),\n      'Thème détecté': theme.nom,\n      'Pôle': theme.pole,\n      'Normandie': normand ? 'Oui' : 'Non',\n      'Résumé / extrait': extrait,\n      'Image (URL)': image,\n      'Crédit image': image ? media : '',\n      'ID événement': '',\n      'Statut': 'Nouveau',\n      'Article lié (ID)': '',\n      'Fiabilité source': fiabilite,\n      'Priorité thème': theme.priorite,\n      'Score événement': '',\n    },\n  });\n}\nconsole.log(`Actus gardées : ${sortie.length} — écartées : ${JSON.stringify(ecartees)}`);\nreturn sortie;\n"
+      },
+      "name": "Normaliser & détecter thème",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "df59729b-6483-4d38-a41e-33b7fe1f01ef",
+      "position": [
+        5824,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow A (Delaunay Productions) — Nœud « Décoder liens Google News »\n// Remplace les liens news.google.com/rss/articles/… par l'URL réelle de l'article,\n// puis réattribue média, domaine, fiabilité et clé à partir de l'onglet Sources.\n// Si le décodage échoue, l'actu est gardée telle quelle (lien Google) : rien n'est perdu.\n// ⚠️ Mode TEST uniquement (CGU Google News = usage personnel). Méthode non officielle,\n//    Google peut la casser à tout moment.\n\nconst PAUSE_MS = 250;      // pause entre deux liens, par file, pour ne pas se faire bloquer\nconst EN_PARALLELE = 4;    // nombre de liens décodés en même temps\nconst BUDGET_MS = 40000;   // n8n coupe un nœud Code à 60 s : on s'arrête à 40 s\nconst TIMEOUT_MS = 8000;   // délai max par appel à Google\nconst debut = Date.now();\n// Mémoire entre deux exécutions automatiques (pas en test manuel) : un lien déjà décodé ne l'est plus jamais\nconst memoire = $getWorkflowStaticData('global');\nmemoire.googleNews = memoire.googleNews || {};\nconst cache = memoire.googleNews;\nconst UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';\n\nconst hote = u => ((String(u || '').match(/^https?:\\/\\/([^\\/?#]+)/i) || [])[1] || '').replace(/^www\\./i, '').toLowerCase();\nconst cleUrl = u => {\n  const m = String(u || '').trim().match(/^https?:\\/\\/([^\\/?#]+)([^?#]*)/i);\n  return m ? m[1].replace(/^www\\./i, '').toLowerCase() + m[2].replace(/\\/+$/, '') : String(u || '').trim();\n};\nconst dormir = ms => new Promise(r => setTimeout(r, ms));\nconst texteDe = r => (typeof r === 'string' ? r : (r && typeof r.body === 'string' ? r.body : JSON.stringify(r || '')));\n\n// Onglet Sources : domaine -> { nom, fiabilité }\nconst sources = $('Lire Sources').all().map(i => i.json)\n  .filter(s => s['Domaine (filtre site:)'] && !/news\\.google/.test(s['Domaine (filtre site:)']))\n  .map(s => ({ domaine: String(s['Domaine (filtre site:)']).replace(/^www\\./, '').toLowerCase(), nom: s['Nom'], fiabilite: Number(s['Fiabilité (1-5)']) || 3 }));\nconst sourcePour = h => sources.find(s => h === s.domaine || h.endsWith('.' + s.domaine));\n\n// 1) Ancien format : l'URL est directement dans l'identifiant encodé en base64\nfunction decoderAncien(id) {\n  try {\n    const b = Buffer.from(id.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('latin1');\n    if (b.includes('AU_yqL')) return null; // nouveau format\n    const m = b.match(/https?:\\/\\/[\\x21-\\x7e]+/);\n    return m ? m[0] : null;\n  } catch (e) { return null; }\n}\n\n// 2) Nouveau format : on lit la signature sur la page Google, puis on demande l'URL à Google\nasync function decoderNouveau(id, helpers) {\n  const page = texteDe(await helpers.httpRequest({\n    method: 'GET',\n    url: `https://news.google.com/rss/articles/${id}`,\n    headers: { 'User-Agent': UA, 'Accept-Language': 'fr-FR,fr;q=0.9' },\n    returnFullResponse: false,\n    json: false,\n    timeout: TIMEOUT_MS,\n  }));\n  const sg = (page.match(/data-n-a-sg=\"([^\"]+)\"/) || [])[1];\n  const ts = (page.match(/data-n-a-ts=\"([^\"]+)\"/) || [])[1];\n  if (!sg || !ts) return null;\n\n  const req = [[['Fbv4je',\n    `[\"garturlreq\",[[\"X\",\"X\",[\"X\",\"X\"],null,null,1,1,\"US:en\",null,1,null,null,null,null,null,0,1],\"X\",\"X\",1,[1,1,1],1,1,null,0,0,null,0],\"${id}\",${ts},\"${sg}\"]`,\n    null, 'generic']]];\n  const rep = texteDe(await helpers.httpRequest({\n    method: 'POST',\n    url: 'https://news.google.com/_/DotsSplashUi/data/batchexecute',\n    headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },\n    body: 'f.req=' + encodeURIComponent(JSON.stringify(req)),\n    json: false,\n    timeout: TIMEOUT_MS,\n  }));\n  const bloc = rep.split('\\n\\n')[1];\n  if (!bloc) return null;\n  const donnees = JSON.parse(bloc);\n  const url = JSON.parse(donnees[0][2])[1];\n  return /^https?:\\/\\//.test(url) ? url : null;\n}\n\n// 1re passe : liens à décoder (hors cache)\nconst items = $input.all().map(it => ({ a: { ...it.json } }));\nfor (const x of items) {\n  const m = String(x.a['URL'] || '').match(/news\\.google\\.com\\/(?:rss\\/)?articles\\/([^?\\/]+)/);\n  if (!m) continue;\n  x.id = m[1];\n  x.vraie = cache[x.id] || decoderAncien(x.id);\n}\nconst aFaire = items.filter(x => x.id && !x.vraie);\n\n// 2e passe : plusieurs files en parallèle, arrêt propre avant la limite de 60 s\nlet nbEchecs = 0, nbReportes = 0, curseur = 0;\nconst this_ = this;\nasync function file() {\n  while (curseur < aFaire.length) {\n    const x = aFaire[curseur++];\n    if (Date.now() - debut > BUDGET_MS) { x.reporte = true; nbReportes++; continue; }\n    try { x.vraie = await decoderNouveau(x.id, this_.helpers); } catch (e) { x.vraie = null; }\n    if (x.vraie) cache[x.id] = x.vraie; else nbEchecs++;\n    await dormir(PAUSE_MS);\n  }\n}\nawait Promise.all(Array.from({ length: EN_PARALLELE }, file));\n\n// Cache limité aux 3000 derniers liens\nconst cles = Object.keys(cache);\nif (cles.length > 3000) for (const k of cles.slice(0, cles.length - 3000)) delete cache[k];\n\nconst sortie = [];\nfor (const x of items) {\n  const a = x.a;\n  // Pas eu le temps : l'actu n'est pas écrite maintenant, elle reviendra au prochain passage (flux sur 24 h)\n  if (x.reporte) continue;\n  if (x.vraie) {\n    const h = hote(x.vraie);\n    const src = sourcePour(h);\n    a['URL'] = x.vraie;\n    a['Clé (URL normalisée)'] = cleUrl(x.vraie);\n    a['Domaine'] = h;\n    if (src) {\n      a['Média source'] = src.nom;      // même nom que les flux natifs => pas de doublon de média\n      a['Fiabilité source'] = src.fiabilite;\n    } else {\n      // Site absent de l'onglet Sources : fiabilité 2 => ne suffit jamais seul, ne compte pas comme 2e source\n      a['Fiabilité source'] = 2;\n    }\n    if (a['Crédit image']) a['Crédit image'] = a['Média source'];\n  }\n  sortie.push({ json: a });\n}\nconsole.log(`Google News : ${aFaire.length - nbEchecs - nbReportes} décodés, ${items.filter(x => x.id).length - aFaire.length} déjà connus, ${nbEchecs} échecs (gardés tels quels), ${nbReportes} reportés au prochain passage — ${Math.round((Date.now() - debut) / 1000)} s`);\nreturn sortie;\n"
+      },
+      "name": "Décoder liens Google News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "ffe18fbe-d4c3-49cd-ad33-1fd4158fa5f6",
+      "position": [
+        6064,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json['Clé (URL normalisée)'] }}",
+        "options": {}
+      },
+      "name": "Supprimer les doublons",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "id": "e256b9f2-3271-4bf7-9bfe-31a8e6699f55",
+      "position": [
+        6544,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Actus brutes",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Clé (URL normalisée)",
+              "displayName": "Clé (URL normalisée)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date collecte",
+              "displayName": "Date collecte",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date publication",
+              "displayName": "Date publication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Titre",
+              "displayName": "Titre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Média source",
+              "displayName": "Média source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Domaine",
+              "displayName": "Domaine",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Thème détecté",
+              "displayName": "Thème détecté",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Pôle",
+              "displayName": "Pôle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Normandie",
+              "displayName": "Normandie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Résumé / extrait",
+              "displayName": "Résumé / extrait",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image (URL)",
+              "displayName": "Image (URL)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Crédit image",
+              "displayName": "Crédit image",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID événement",
+              "displayName": "ID événement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Statut",
+              "displayName": "Statut",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Article lié (ID)",
+              "displayName": "Article lié (ID)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Fiabilité source",
+              "displayName": "Fiabilité source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priorité thème",
+              "displayName": "Priorité thème",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Score événement",
+              "displayName": "Score événement",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "name": "Écrire dans Actus brutes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "id": "91ba3070-2250-40f3-8958-347420d5b9a6",
+      "position": [
+        6784,
+        1600
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## A. Collecte Delaunay Productions — à configurer une fois\n\n1. Sur les nœuds **Google Sheets**, vérifie l'identifiant Google (Credential).\n2. Onglet **Sources** : un flux natif est lu quand **Statut flux = OK** et **Actif = Oui**. Les autres passent par Google News (mode test).\n3. Onglet **Thèmes** : mots-clés de détection, exclusions, Normandie obligatoire, priorité. Une actu sans thème reconnu est jetée.\n4. Onglet **Filtres** : sites bloqués, reprises, titres ignorés (promos, drones militaires…).\n\nLance **Test manuel** puis regarde l'onglet Actus brutes. Passage automatique toutes les 3 h (7 h 20 → 22 h 20).\n\n⚠️ « Supprimer les doublons » se souvient des actus déjà vues. Pour repartir de zéro : ouvre le nœud → *Clear Deduplication History*.",
+        "height": 440,
+        "width": 560
+      },
+      "name": "Note deb3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "id": "30a49568-c453-4bc1-b7c4-0427ef0e3bf8",
+      "position": [
+        4384,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1mMq0XslIIZVlg7HfbWzLWhKcU3jdycZvaRwy-gClpRI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Filtres",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "name": "Lire Filtres",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "id": "90efa654-c67a-4c89-97fe-832735765e2f",
+      "position": [
+        5104,
+        1600
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LKJBcjn9oIdMr5vo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Workflow A (Delaunay Productions) — Nœud « Filtrer (bloqués, reprises, non-articles) »\n// Placé après le décodage des liens Google News : on connaît alors le vrai site de chaque actu.\n// Règles lues dans l'onglet « Filtres » (modifiable sans toucher au workflow) :\n//   - Domaine bloqué : l'actu est jetée (mercato, paris sportifs, sites de clubs adverses…)\n//   - Reprise        : le site republie un autre média (maville.com = Ouest-France) ->\n//                      l'actu est rattachée à ce média, elle ne compte donc pas comme une 2e source\n//   - URL ignorée    : morceau d'adresse qui signale une page qui n'est pas un article (fiche de match…)\n//   - Titre ignoré   : expression (regex, sans accents ni majuscules) — catégories jeunes, résumés multi-sujets…\nconst sansAccent = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();\nconst hote = u => ((String(u || '').match(/^https?:\\/\\/([^\\/?#]+)/i) || [])[1] || '').replace(/^www\\./i, '').toLowerCase();\nconst surDomaine = (h, d) => h === d || h.endsWith('.' + d);\n\nlet regles = [];\ntry { regles = $('Lire Filtres').all().map(i => i.json); } catch (e) { /* onglet absent : aucun filtre */ }\nconst val = r => String(r['Valeur'] || '').trim();\nconst bloques = regles.filter(r => r['Type'] === 'Domaine bloqué' && val(r)).map(r => val(r).toLowerCase().replace(/^www\\./, ''));\nconst reprises = regles.filter(r => r['Type'] === 'Reprise' && val(r) && r['Équivaut à (pour Reprise)'])\n  .map(r => ({ domaine: val(r).toLowerCase().replace(/^www\\./, ''), media: String(r['Équivaut à (pour Reprise)']).trim() }));\nconst urlsIgnorees = regles.filter(r => r['Type'] === 'URL ignorée' && val(r)).map(r => val(r).toLowerCase());\nconst titresIgnores = regles.filter(r => r['Type'] === 'Titre ignoré' && val(r)).map(r => {\n  try { return new RegExp(sansAccent(val(r)), 'i'); } catch (e) { return null; }\n}).filter(Boolean);\n\n// Fiabilité des médias connus (pour les reprises)\nconst fiabiliteDe = {};\nfor (const s of $('Lire Sources').all().map(i => i.json)) {\n  if (s['Nom']) fiabiliteDe[s['Nom']] = Number(s['Fiabilité (1-5)']) || 3;\n}\n\nconst sortie = [];\nconst ecartees = {};\nfor (const it of $input.all()) {\n  const a = { ...it.json };\n  const url = String(a['URL'] || '');\n  const h = hote(url);\n  const titre = sansAccent(a['Titre']);\n  let raison = '';\n  if (bloques.some(d => surDomaine(h, d))) raison = 'site bloqué';\n  else if (urlsIgnorees.some(m => url.toLowerCase().includes(m))) raison = \"pas un article\";\n  else if (titresIgnores.some(re => re.test(titre))) raison = 'titre ignoré';\n  if (raison) { ecartees[raison] = (ecartees[raison] || 0) + 1; continue; }\n\n  const rep = reprises.find(r => surDomaine(h, r.domaine));\n  if (rep) {\n    a['Média source'] = rep.media;\n    a['Fiabilité source'] = fiabiliteDe[rep.media] || a['Fiabilité source'];\n    if (a['Crédit image']) a['Crédit image'] = rep.media;\n  }\n  sortie.push({ json: a });\n}\nif (Object.keys(ecartees).length) console.log('Actus écartées par les filtres :', JSON.stringify(ecartees));\nreturn sortie;\n"
+      },
+      "name": "Filtrer (bloqués, reprises, non-articles)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "77cecea6-57ec-418d-bbb1-085a87ae4147",
+      "position": [
+        6304,
+        1600
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Planification": {
+      "main": [
+        [
+          {
+            "node": "Lire Paramètres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test manuel": {
+      "main": [
+        [
+          {
+            "node": "Lire Paramètres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Paramètres": {
+      "main": [
+        [
+          {
+            "node": "Lire Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Sources": {
+      "main": [
+        [
+          {
+            "node": "Lire Thèmes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer flux": {
+      "main": [
+        [
+          {
+            "node": "Lire les flux RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire les flux RSS": {
+      "main": [
+        [
+          {
+            "node": "Normaliser & détecter thème",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Décoder liens Google News": {
+      "main": [
+        [
+          {
+            "node": "Filtrer (bloqués, reprises, non-articles)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supprimer les doublons": {
+      "main": [
+        [
+          {
+            "node": "Écrire dans Actus brutes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Filtres": {
+      "main": [
+        [
+          {
+            "node": "Préparer flux",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrer (bloqués, reprises, non-articles)": {
+      "main": [
+        [
+          {
+            "node": "Supprimer les doublons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lire Thèmes": {
+      "main": [
+        [
+          {
+            "node": "Lire Filtres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normaliser & détecter thème": {
+      "main": [
+        [
+          {
+            "node": "Décoder liens Google News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Paris",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}

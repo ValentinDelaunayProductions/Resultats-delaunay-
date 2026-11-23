@@ -35,6 +35,18 @@ window.DELAUNAY_CONFIG = {
     apiUrl: "https://script.google.com/macros/s/AKfycbwxU-IMlXO-JiMfXi2DdoAKnq1DkEsNYVpLshRtTIW0NEcMl6ZGLDlkc0hfc0CSNLnA/exec"
   },
 
+  // Centre de suivi Delaunay Productions (productions.html, bouton ⇄ en haut à droite) : indépendant de Delaunay+.
+  // Section « Blog » : articles rédigés par le workflow n8n « Delaunay Productions | B. Sélection & rédaction »
+  // (onglet « Articles » du Sheet « Automatisation Article blog Delaunay Productions »).
+  // apiUrl = URL de l'application web Apps Script (…/exec), voir apps-script/BlogProductions.gs et le README.
+  // Vide = la page affiche des articles d'exemple. Le mot de passe est le même que pour Delaunay+.
+  productions: {
+    blog: {
+      apiUrl: ""
+    },
+    refreshMinutes: 5
+  },
+
   // Section « Live » : Sheet « API-Sports — clubs par sport » rempli par les workflows n8n Highlightly
   // (onglets « Live (réglages) », « Live » et « Matchs »). Le Sheet doit être partagé en lecture avec le lien.
   live: {

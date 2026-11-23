@@ -12,6 +12,9 @@ Site statique qui affiche les scores de tous les championnats, lus directement d
 | `config.js` | **Seul fichier à modifier** : ID du Sheet, onglets, rafraîchissement, URL du Blog, Sheet du Live |
 | `apps-script/Annuaire.gs` | Passerelle protégée par mot de passe : écran de connexion + onglet Annuaire & inventaire |
 | `apps-script/Blog.gs` | Passerelle à coller dans le Sheet des articles (lecture + boutons du Blog) |
+| `productions.html`, `productions.css`, `productions.js` | Centre de suivi **Delaunay Productions** (fond blanc), ouvert par le bouton ⇄ en haut à droite |
+| `apps-script/BlogProductions.gs` | Passerelle à coller dans le Sheet des articles Delaunay Productions |
+| `n8n/Delaunay_Productions_A_Collecte.json`, `n8n/Delaunay_Productions_B_Redaction.json` | Workflows n8n du blog Delaunay Productions |
 
 ## 1. Rendre le Sheet lisible par le site
 
@@ -152,6 +155,42 @@ Tant que `blog.apiUrl` est vide, le Blog affiche des articles d'exemple et les b
 > Si tu modifies `Blog.gs` plus tard : **Déployer → Gérer les déploiements → ✏️ → Version : Nouvelle version**, sinon l'ancienne version reste en ligne (l'URL ne change pas).
 >
 > Sécurité : l'URL `/exec` est visible dans `config.js` (dépôt public). Quelqu'un qui la trouverait pourrait lire les articles et changer un statut, rien d'autre : le script n'accepte que les statuts `À relire`, `Validé`, `À revoir`, `Rejeté` et `Publié`, et ne touche à aucune autre colonne.
+
+## Centre de suivi Delaunay Productions
+
+Le bouton **⇄ Delaunay Productions** en haut à droite du centre de suivi Delaunay+ ouvre `productions.html`, une page séparée aux couleurs de delaunayproductions.fr (fond blanc, texte noir). Le bouton **⇄ Delaunay+** de cette page ramène au centre de suivi Delaunay+. Les deux pages sont indépendantes : seul le mot de passe est partagé (une connexion sur l'une vaut pour l'autre sur le même appareil).
+
+Pour l'instant la page contient l'onglet **Blog** : les articles rédigés par les workflows n8n à partir de la presse spécialisée (drone, audiovisuel, événementiel, médias) et de la presse normande. Mêmes boutons que le Blog Delaunay+ (Publier / À revoir / Rejeter, Copier le texte), avec en plus le pôle, le thème, un badge Normandie, la meta description et les mots-clés SEO.
+
+### Les deux workflows n8n
+
+| Workflow | Quand | Rôle |
+| --- | --- | --- |
+| `n8n/Delaunay_Productions_A_Collecte.json` | toutes les 3 h, 7 h 20 → 22 h 20 | Lit les flux (onglet Sources) et les recherches par thème (onglet Thèmes), garde les actus de moins de 48 h qui correspondent à un thème, écarte les promos et drones militaires (onglet Filtres) et écrit dans **Actus brutes** |
+| `n8n/Delaunay_Productions_B_Redaction.json` | toutes les 3 h, 7 h 40 → 22 h 40 | Regroupe les actus par sujet (Ollama), choisit les 3 meilleurs sujets, lit les articles sources et rédige l'article, la meta description et les mots-clés, puis écrit dans **Articles** au statut « À relire » |
+
+Import : dans n8n, **Workflows → Import from File**, puis vérifie les identifiants Google Sheets et Ollama sur chaque nœud. Les workflows arrivent désactivés : lance **Test manuel** sur A puis sur B, regarde le Sheet, puis active-les.
+
+### Le Sheet « Automatisation Article blog Delaunay Productions »
+
+| Onglet | À quoi il sert |
+| --- | --- |
+| Paramètres | Tous les réglages (fenêtre de collecte, nombre d'articles, longueur minimale, prompt de l'IA, présentation de l'agence utilisée en fin d'article…) |
+| Sources | Médias suivis. Un flux natif est lu quand **Statut flux = OK** ; sinon la recherche Google News (mode test) prend le relais |
+| Thèmes | Sujets suivis : mots-clés de détection, mots exclus, « Normandie obligatoire », priorité, angle éditorial donné à l'IA |
+| Filtres | Sites bloqués, reprises (maville = Ouest-France), URL et titres ignorés |
+| Actus brutes / Articles | Remplis par n8n |
+| Photos | Visuels autorisés, par pôle ou par thème (Autorisation obtenue = Oui) |
+
+### Brancher la page au Sheet (une seule fois)
+
+1. Ouvre le Sheet *Automatisation Article blog Delaunay Productions* → **Extensions → Apps Script**.
+2. Remplace le contenu de `Code.gs` par celui de [`apps-script/BlogProductions.gs`](apps-script/BlogProductions.gs), puis enregistre.
+3. Optionnel : ⚙ **Paramètres du projet → Propriétés du script** → `MOT_DE_PASSE` = le mot de passe du centre de suivi.
+4. **Déployer → Nouveau déploiement** → **Application web** → *Exécuter en tant que* : **Moi** → *Qui a accès* : **Tout le monde**.
+5. Colle l'URL `/exec` dans `config.js` → `productions.blog.apiUrl` et pousse sur GitHub.
+
+Tant que `productions.blog.apiUrl` est vide, la page affiche des articles d'exemple.
 
 ## 3. Mise en ligne sur GitHub Pages
 

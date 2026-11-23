@@ -477,3 +477,16 @@ body.is-locked > :not(.gate):not(script) { display: none !important; }
 .q--ok { color: var(--ok); } .q--mid { color: var(--mid); } .q--low { color: var(--low); } .q--off { color: var(--mute); }
 .txt-low { color: var(--low); }
 @media (max-width: 560px) { .fcard__inv { grid-template-columns: 1fr; } }
+
+/* Bouton de bascule vers le centre de suivi Delaunay Productions (charte Delaunay Productions : blanc / noir) */
+.switch { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 34px; margin-left: 12px; padding: 0 14px 0 8px; border-radius: 999px; background: var(--white); color: var(--black); text-decoration: none; font-family: var(--text); font-weight: 800; font-size: 12.5px; letter-spacing: .03em; white-space: nowrap; transition: transform .15s, box-shadow .15s; }
+.switch:hover { transform: translateY(-1px); box-shadow: 0 0 0 2px var(--yellow); }
+.switch__ico { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--black); color: var(--yellow); font-size: 13px; }
+@media (max-width: 640px) {
+  .top__bar { gap: 8px; }
+  .top__status { font-size: 0; gap: 0; }
+  .top__logout { margin-left: 4px; padding: 4px 8px; font-size: 11px; }
+  .switch { margin-left: 4px; height: 32px; padding: 0 10px 0 6px; gap: 6px; }
+  .switch__txt { font-size: 0; }
+  .switch__txt::after { content: "D. Prod"; font-size: 12px; }
+}
