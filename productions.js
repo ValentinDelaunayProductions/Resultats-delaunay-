@@ -62,7 +62,7 @@
       const pending = state.pending[id];
       const statut = pending || r["Statut"] || "À relire";
       // Le corps contient le bloc « Sources : » ajouté par n8n : on l'affiche à part
-      const corps = String(r["Corps de l'article"] || "").split(/\n\s*Sources\s*:\s*\n/i)[0].trim();
+      const corps = String(r["Corps de l'article"] || "").split(/\n\s*Sources\s*:/i)[0].trim();
       const sources = String(r["Sources citées (média + URL)"] || "").split("\n").map((l) => {
         const m = l.match(/^(.*?)\s*:\s*(https?:\/\/\S+)/);
         return m ? { media: clean(m[1]), url: m[2] } : null;
@@ -182,7 +182,7 @@
     ["Collecte", "Toutes les 3 h, 7 h – 22 h", "n8n lit la presse spécialisée en matériel et en technologies (Helicomicro, DroneDJ, Newsshooter, CineD, Mediakwest, Sonovision, SoundLightUp, Audiofanzine, Siècle Digital…) et une recherche par thème. Seules les actus de moins de 48 h sont gardées."],
     ["Tri", "Automatique", "Une actu n'est retenue que si elle correspond à une nouveauté technologique suivie : drones, caméras et optiques, montage, son, lumière, live et régie, écrans et immersif, technologies de l'événementiel, IA, réseaux sociaux. Promotions, guides d'achat, nominations et drones militaires sont écartés."],
     ["Croisement", "Toutes les 3 h", "Les actus qui parlent du même sujet sont regroupées. Il faut 2 médias différents, sauf pour un média spécialisé noté 4-5 ou un thème de priorité 1-2 : l'article porte alors l'alerte ⚠ Source unique. Un sujet déjà traité n'est jamais réécrit."],
-    ["Rédaction", "IA, 3 par passage", "Les meilleurs sujets sont rédigés uniquement à partir des faits des sources, citées en bas de l'article, avec une meta description et des mots-clés pour le référencement."],
+    ["Rédaction", "IA, 3 par passage", "Les meilleurs sujets sont rédigés uniquement à partir des faits des sources, citées en bas de l'article, avec des mots-clés pour le référencement (la meta description est générée par le site)."],
     ["À vous de choisir", "Ici", "Vert : publiable sur delaunayproductions.fr. Orange : à revoir. Rouge : on ne publie pas. Rien n'est publié automatiquement."]
   ];
   function howtoHTML() {
@@ -222,7 +222,7 @@
       <details class="post__more" data-open-id="${esc(a.id)}" ${open ? "open" : ""}>
         <summary>Lire l'article <span>${nbMots(a.chapo + " " + a.corps)} mots · ${a.nbSources} source${a.nbSources > 1 ? "s" : ""}${a.format ? " · " + esc(a.format) : ""}</span></summary>
         <div class="post__body">${paras.map((p) => `<p>${esc(p)}</p>`).join("")}</div>
-        ${a.meta || a.motsCles ? `<div class="post__seo">${a.meta ? `<div><b>Meta description</b>${esc(a.meta)}</div>` : ""}${a.motsCles ? `<div><b>Mots-clés</b>${esc(a.motsCles)}</div>` : ""}</div>` : ""}
+        ${a.motsCles ? `<div class="post__seo"><div><b>Mots-clés</b>${esc(a.motsCles)}</div></div>` : ""}
         ${a.sources.length ? `<div class="post__src"><b>Sources</b><ul>${a.sources.map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.media)} ↗</a></li>`).join("")}</ul></div>` : ""}
       </details>
       <div class="post__actions">
@@ -274,9 +274,9 @@
   async function copier(id) {
     const a = state.blog.find((x) => x.id === id);
     if (!a) return;
-    const texte = [a.titre, a.chapo, a.corps,
-      a.sources.length ? "Sources :\n" + a.sources.map((s) => `- ${s.media} : ${s.url}`).join("\n") : "",
-      a.meta ? "Meta description : " + a.meta : "", a.motsCles ? "Mots-clés : " + a.motsCles : ""].filter(Boolean).join("\n\n");
+    // Pour le site : sources citées par le nom du média uniquement, sans les URL
+    const medias = [...new Set(a.sources.map((s) => s.media).filter(Boolean))];
+    const texte = [a.titre, a.chapo, a.corps, medias.length ? "Sources : " + medias.join(", ") : ""].filter(Boolean).join("\n\n");
     try { await navigator.clipboard.writeText(texte); toast("Article copié dans le presse-papiers"); }
     catch (e) { toast("Copie impossible dans ce navigateur", true); }
   }

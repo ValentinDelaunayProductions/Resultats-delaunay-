@@ -20,10 +20,10 @@
       "typeVersion": 4.5,
       "executeOnce": true,
       "alwaysOutputData": true,
-      "id": "13c25347-eb9b-4826-9391-70bd65367e98",
+      "id": "54a5b9eb-dedf-4052-accc-ea9d552d4adb",
       "position": [
-        10464,
-        3392
+        896,
+        912
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -39,10 +39,10 @@
       "name": "Nettoyage : Actus brutes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "e81bfabd-caf9-4493-b038-d52192214b81",
+      "id": "14462b60-978a-44c3-9dae-da663fd68a7d",
       "position": [
-        10912,
-        3056
+        1344,
+        576
       ]
     },
     {
@@ -63,10 +63,10 @@
       "name": "Supprimer doublons & vieilles actus",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "id": "23794b25-eaf9-46cb-bbcf-628ac37f2968",
+      "id": "164d5015-e783-4cc1-9944-eb0d6e046f21",
       "position": [
-        11200,
-        3056
+        1632,
+        576
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -82,10 +82,10 @@
       "name": "Nettoyage : Articles",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "90da2e00-3bcf-46ac-b220-6fbce8e780f3",
+      "id": "64f5cbd9-ff1f-416d-a13c-ba0c9b261a87",
       "position": [
-        10912,
-        3248
+        1344,
+        768
       ]
     },
     {
@@ -106,10 +106,10 @@
       "name": "Supprimer vieux articles",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "id": "6a9715bc-8c9d-492b-ad5f-2c30fcf76867",
+      "id": "1bf3b144-d2c2-45c3-bbb4-5a7f3843636a",
       "position": [
-        11200,
-        3248
+        1632,
+        768
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -126,10 +126,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "executeOnce": true,
-      "id": "0b4dda62-a947-4db6-b3c5-53e921cdf69a",
+      "id": "0968914c-0597-41bf-a46c-e641639483b1",
       "position": [
-        11712,
-        3648
+        2144,
+        1168
       ]
     },
     {
@@ -161,10 +161,10 @@
       "name": "Passer en Doublon",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "id": "930ea8e3-55e0-4831-9833-ee42078fab99",
+      "id": "8fe13b3c-5ec5-4d6a-b89c-91c7ac22cafa",
       "position": [
-        11936,
-        3648
+        2368,
+        1168
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -175,17 +175,17 @@
     },
     {
       "parameters": {
-        "content": "## B. Sélection & rédaction Delaunay Productions\n\n1. Sur les nœuds **Google Sheets**, vérifie l'identifiant Google. Les **2 nœuds IA** utilisent Ollama (gemma4:31b) comme Delaunay+.\n2. Lance **Test manuel** quand l'onglet Actus brutes contient des actus.\n\n**Nettoyage** : à chaque lancement, suppression des doublons d'Actus brutes, des actus et des articles de plus de 14 jours.\n**Anti-doublon** : un sujet déjà couvert (même source, ou même sujet du même thème dans les 72 h) passe en « Doublon » sans appel IA.\n\n**Logique** : 2 médias différents sur le même sujet, ou 1 seul si le thème est de priorité 1-2 ou si le média est noté 4-5. Les meilleurs scores (3 par passage) sont rédigés avec meta description et mots-clés SEO, puis arrivent dans l'onglet **Articles** au statut « À relire ».\n\nPassage automatique toutes les 3 h (7 h 40 → 22 h 40), après la collecte et hors des passages Delaunay+ sur Ollama. Rien n'est publié automatiquement.",
+        "content": "## B. Sélection & rédaction Delaunay Productions\n\n1. Sur les nœuds **Google Sheets**, vérifie l'identifiant Google. Tri : Gemma (API Google). Rédaction : Gemini Flash-Lite (API Google).\n2. Lance **Test manuel** quand l'onglet Actus brutes contient des actus.\n\n**Nettoyage** : à chaque lancement, suppression des doublons d'Actus brutes, des actus et des articles de plus de 14 jours.\n**Anti-doublon** : un sujet déjà couvert (même source, ou même sujet du même thème dans les 72 h) passe en « Doublon » sans appel IA.\n\n**Logique** : 2 médias différents sur le même sujet, ou 1 seul si le thème est de priorité 1-2 ou si le média est noté 4-5. Les meilleurs scores (3 par passage) sont rédigés avec des mots-clés SEO (la meta description est générée par le site), puis arrivent dans l'onglet **Articles** au statut « À relire ».\n\nPassage automatique toutes les 3 h (7 h 40 → 22 h 40). Rien n'est publié automatiquement.",
         "height": 560,
         "width": 640
       },
       "name": "Note 051b",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "id": "7ab5db4a-bf0d-458b-a340-612eba62eddb",
+      "id": "387cfcd8-a6a8-430d-8ac1-03b35c2605b5",
       "position": [
-        9728,
-        2480
+        160,
+        0
       ]
     },
     {
@@ -202,10 +202,10 @@
       "name": "Planification",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "id": "abd0a7eb-f44e-4ee5-93ad-fde8e16c90d7",
+      "id": "c9cb7e53-e56b-4aaa-9745-0ff4c292bb6c",
       "position": [
-        9568,
-        3392
+        0,
+        912
       ]
     },
     {
@@ -216,10 +216,10 @@
       "name": "IA : regrouper en sujets",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
-      "id": "c2d5a76c-c12f-4709-b358-5e0b36cfb0e6",
+      "id": "5cb3d9e6-c25b-425e-8789-aadd74b17e5c",
       "position": [
-        11136,
-        3440
+        1568,
+        960
       ],
       "onError": "continueRegularOutput"
     },
@@ -252,25 +252,25 @@
       "name": "Lire chaque article",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "id": "44669ece-4243-4c73-bd88-e123586b9d17",
+      "id": "aef40c4d-3b88-472b-bff0-784133bb9bba",
       "position": [
-        11936,
-        3456
+        2368,
+        976
       ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $json.prompt }}\n\nLONGUEUR : {{ $json.consigneLongueur }}\n\nFIN D'ARTICLE : {{ $json.consigneMarque }}\n\nThème : {{ $json.theme }} ({{ $json.pole }})\nSujet : {{ $json.sujet }}\n{{ $json.angle ? 'Angle éditorial : ' + $json.angle : '' }}\n{{ $json.normandie ? 'Le sujet concerne la Normandie : mets-le en avant si les sources le permettent.' : '' }}\n\nSOURCES — {{ $json.nbTextesComplets }} texte(s) complet(s) sur {{ $json.sources.length }}. Quand texteComplet = false, on n'a que le titre et le chapô : n'en tire que ce qui y est écrit. Une source en anglais se rédige en français.\n{{ JSON.stringify($json.sources.map(s => ({ media: s.media, titre: s.titre, texteComplet: s.texteComplet, texte: s.texte })), null, 1) }}\n\nAvant de répondre, relis-toi : chaque fait vient des sources (sinon supprime-le), la première phrase dit ce qui est nouveau, et le lecteur comprend ce que cela change pour lui.\nRéponds UNIQUEMENT avec un JSON valide, sans texte autour :\n{\"titre\":\"...\",\"chapo\":\"...\",\"corps\":\"paragraphes séparés par une ligne vide, sans bloc Sources\",\"metaDescription\":\"150 caractères maximum\",\"motsCles\":\"mot-clé 1, mot-clé 2, mot-clé 3\"}"
+        "text": "={{ $json.prompt }}\n\nLONGUEUR : {{ $json.consigneLongueur }}\n\nFIN D'ARTICLE : {{ $json.consigneMarque }}\n\nThème : {{ $json.theme }} ({{ $json.pole }})\nSujet : {{ $json.sujet }}\n{{ $json.angle ? 'Angle éditorial : ' + $json.angle : '' }}\n{{ $json.normandie ? 'Le sujet concerne la Normandie : mets-le en avant si les sources le permettent.' : '' }}\n\nSOURCES — {{ $json.nbTextesComplets }} texte(s) complet(s) sur {{ $json.sources.length }}. Quand texteComplet = false, on n'a que le titre et le chapô : n'en tire que ce qui y est écrit. Une source en anglais se rédige en français.\n{{ JSON.stringify($json.sources.map(s => ({ media: s.media, titre: s.titre, texteComplet: s.texteComplet, texte: s.texte })), null, 1) }}\n\nAvant de répondre, relis-toi : chaque fait vient des sources (sinon supprime-le), la première phrase dit ce qui est nouveau, et le lecteur comprend ce que cela change pour lui.\nRéponds UNIQUEMENT avec un JSON valide, sans texte autour :\n{\"titre\":\"...\",\"chapo\":\"...\",\"corps\":\"paragraphes séparés par une ligne vide, sans bloc Sources\",\"motsCles\":\"mot-clé 1, mot-clé 2, mot-clé 3\"}"
       },
       "name": "IA : rédiger l'article",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
-      "id": "dd812286-e98b-4e20-9c1d-37268aac86be",
+      "id": "58754399-1e57-4f7b-b4eb-5f86b60b8b51",
       "position": [
-        12608,
-        3456
+        3040,
+        976
       ],
       "onError": "continueRegularOutput"
     },
@@ -285,10 +285,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmOllama",
       "typeVersion": 1,
       "position": [
-        12688,
-        3632
+        3312,
+        1184
       ],
-      "id": "4a44abf8-4920-4ca9-80ca-8b477d6396e8",
+      "id": "ca0d8e51-ae7d-4266-96b3-3149615c3742",
       "name": "Ollama Model2",
       "credentials": {
         "ollamaApi": {
@@ -299,7 +299,7 @@
     },
     {
       "parameters": {
-        "model": "gemma4:31b",
+        "model": "gemma4:e4b",
         "options": {
           "temperature": 0.2,
           "numCtx": 8192
@@ -308,10 +308,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmOllama",
       "typeVersion": 1,
       "position": [
-        11216,
-        3680
+        1728,
+        1168
       ],
-      "id": "1b255f13-157b-4d7a-884f-3629e2d8f1ae",
+      "id": "c3611f49-760b-41c3-a60d-db7f019fa9f5",
       "name": "Ollama Model3",
       "credentials": {
         "ollamaApi": {
@@ -339,10 +339,10 @@
       "typeVersion": 4.5,
       "executeOnce": true,
       "alwaysOutputData": true,
-      "id": "fc94f9d2-099d-4bf9-b8ff-5e9fa18723ca",
+      "id": "5075c151-05ed-412d-8b2c-b44dac1bc41c",
       "position": [
-        10688,
-        3392
+        1120,
+        912
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -353,15 +353,15 @@
     },
     {
       "parameters": {
-        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Préparer l'article »\n// Entrée : la réponse de l'IA « Rédiger l'article ». Sortie : une ligne pour l'onglet « Articles ».\nconst photos = $('Lire Photos').all().map(i => i.json)\n  .filter(p => p && p['URL image'] && String(p['Autorisation obtenue']).trim() === 'Oui');\n\n// Extrait le JSON de la réponse d'un modèle IA, même s'il a écrit son raisonnement avant\n// (« Thinking Process… », balises <think>…</think>, bloc ```json…```).\n// On cherche en partant de la FIN le dernier objet JSON valide qui contient la clé attendue :\n// la réponse finale vient toujours après le raisonnement.\nconst texteIA = r => {\n  if (!r) return '';\n  const v = r.text ?? r.output ?? r.response ?? r.content ?? '';\n  return typeof v === 'string' ? v : JSON.stringify(v);\n};\nfunction lireJsonIA(brut, cleAttendue) {\n  let s = String(brut || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, ' ').replace(/```(?:json)?/gi, ' ');\n  const valide = o => o && typeof o === 'object' && (!cleAttendue || (o[cleAttendue] !== undefined\n    && !/^\\s*(\\.\\.\\.|…)?\\s*$/.test(typeof o[cleAttendue] === 'string' ? o[cleAttendue] : 'x')));\n  for (let debut = s.lastIndexOf('{'); debut >= 0; debut = s.lastIndexOf('{', debut - 1)) {\n    // fermeture équilibrée (en ignorant les accolades dans les chaînes)\n    let prof = 0, dansChaine = false, echap = false, fin = -1;\n    for (let i = debut; i < s.length; i++) {\n      const c = s[i];\n      if (dansChaine) { if (echap) echap = false; else if (c === '\\\\') echap = true; else if (c === '\"') dansChaine = false; continue; }\n      if (c === '\"') dansChaine = true;\n      else if (c === '{') prof++;\n      else if (c === '}') { prof--; if (prof === 0) { fin = i; break; } }\n    }\n    if (fin < 0) continue;\n    try { const o = JSON.parse(s.slice(debut, fin + 1)); if (valide(o)) return o; } catch (e) { /* on essaie plus haut */ }\n  }\n  return null;\n}\n\n// Longueur minimale du corps (sans le bloc Sources) : réglage « Nb de mots minimum par article » de l'onglet Paramètres\nlet reglages = {};\ntry { reglages = Object.fromEntries($('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])); } catch (e) { /* réglage par défaut */ }\nconst MIN_MOTS = parseInt(reglages['Nb de mots minimum par article'], 10) || 120;\nconst compterMots = t => (String(t || '').match(/[\\p{L}\\p{N}][\\p{L}\\p{N}'’-]*/gu) || []).length;\nconst maintenant = new Date();\nconst horodatage = maintenant.toISOString().slice(0, 16).replace(/[-:T]/g, '');\nconst norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();\n\n// Photo : d'abord une photo du thème, sinon une photo du pôle. On alterne entre les photos disponibles.\nconst choisirPhoto = (ev, rang) => {\n  const duTheme = photos.filter(p => norm(p['Thème (optionnel)']) && norm(p['Thème (optionnel)']) === norm(ev.theme));\n  const poles = String(ev.pole || '').split(/\\s*;\\s*/).map(norm).filter(Boolean);\n  const duPole = photos.filter(p => !norm(p['Thème (optionnel)']) && poles.includes(norm(p['Pôle'])));\n  const liste = duTheme.length ? duTheme : duPole;\n  return liste.length ? liste[(rang + Math.floor(Date.now() / 86400000)) % liste.length] : null;\n};\nconst nettoyerMeta = s => String(s || '').replace(/\\s+/g, ' ').trim().slice(0, 160);\n\nconst sortie = [];\nconst echecs = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  let ev;\n  try { ev = $('Extraire le texte & regrouper').itemMatching(i).json; }\n  catch (e) { ev = ($('Extraire le texte & regrouper').all()[i] || {}).json; }\n  if (!ev || !ev.sources) continue;\n  const brut = texteIA(items[i].json);\n  const a = lireJsonIA(brut, 'titre');\n  if (!a || !a.corps) { // réponse IA inutilisable : on n'écrit rien, mais on le dit\n    echecs.push(`• ${ev.theme} – ${ev.sujet} : ${brut ? 'pas de JSON {titre, chapo, corps} dans la réponse. Fin de la réponse : « …' + brut.slice(-200).replace(/\\s+/g, ' ') + ' »' : 'réponse vide (modèle hors ligne ou erreur IA)'}`);\n    continue;\n  }\n\n  // Les sources citées viennent de NOS données (pas de l'IA) pour éviter toute URL inventée\n  const sources = ev.sources.map(s => `${s.media} : ${s.url}`);\n  const corps = String(a.corps).trim() + '\\n\\nSources :\\n' + sources.map(s => '- ' + s).join('\\n');\n  const photo = choisirPhoto(ev, i);\n  const nbMots = compterMots(a.corps);\n  const motsCles = Array.isArray(a.motsCles) ? a.motsCles.join(', ') : String(a.motsCles || '');\n\n  sortie.push({\n    json: {\n      'ID article': `ART-DP-${horodatage}-${i + 1}`,\n      'Date création': maintenant.toISOString(),\n      'ID événement': ev.idEvenement,\n      'Titre': String(a.titre || '').trim(),\n      'Chapô': String(a.chapo || '').trim(),\n      \"Corps de l'article\": corps,\n      'Thème': ev.theme,\n      'Pôle': ev.pole || '',\n      'Normandie': ev.normandie ? 'Oui' : 'Non',\n      'Meta description (SEO)': nettoyerMeta(a.metaDescription),\n      'Mots-clés SEO': motsCles.replace(/\\s+/g, ' ').trim(),\n      'Sources citées (média + URL)': sources.join('\\n'),\n      'Nb de sources': ev.sources.length,\n      'Photo (URL)': photo ? photo['URL image'] : '',\n      'Crédit photo': photo ? photo['Crédit'] : '',\n      'Licence photo': photo ? photo['Licence'] : 'Visuel générique',\n      'Statut': 'À relire',\n      'Date publication': '',\n      'URL publication': '',\n      'Relu par': '',\n      'Format': ev.format || '',\n      // champs internes (non écrits dans le Sheet) : tri des articles trop courts\n      _nbMots: nbMots,\n      _garder: nbMots >= MIN_MOTS,\n    },\n  });\n}\nif (echecs.length && !sortie.length) {\n  throw new Error(`Aucun article exploitable (${echecs.length} réponse(s) IA sans JSON).\\n${echecs.join('\\n')}\\n\\n` +\n    `Cause probable : le modèle écrit son raisonnement et n'a pas fini, ou n'a pas terminé par le JSON. ` +\n    `Dans le sous-nœud Ollama : n'active PAS « Format : JSON » ; augmente Context Length (16384) et vérifie qu'Ollama tourne.`);\n}\nif (echecs.length) console.log('Réponses IA ignorées :\\n' + echecs.join('\\n'));\nconst courts = sortie.filter(o => !o.json._garder);\nif (courts.length) console.log(`Articles de moins de ${MIN_MOTS} mots écartés : ` + courts.map(o => `${o.json['Thème']} – ${o.json['Titre']} (${o.json._nbMots} mots)`).join(' | '));\nreturn sortie;\n"
+        "jsCode": "// Workflow B (Delaunay Productions) — Nœud « Préparer l'article »\n// Entrée : la réponse de l'IA « Rédiger l'article ». Sortie : une ligne pour l'onglet « Articles ».\nconst photos = $('Lire Photos').all().map(i => i.json)\n  .filter(p => p && p['URL image'] && String(p['Autorisation obtenue']).trim() === 'Oui');\n\n// Extrait le JSON de la réponse d'un modèle IA, même s'il a écrit son raisonnement avant\n// (« Thinking Process… », balises <think>…</think>, bloc ```json…```).\n// On cherche en partant de la FIN le dernier objet JSON valide qui contient la clé attendue :\n// la réponse finale vient toujours après le raisonnement.\nconst texteIA = r => {\n  if (!r) return '';\n  const v = r.text ?? r.output ?? r.response ?? r.content ?? '';\n  return typeof v === 'string' ? v : JSON.stringify(v);\n};\nfunction lireJsonIA(brut, cleAttendue) {\n  let s = String(brut || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, ' ').replace(/```(?:json)?/gi, ' ');\n  const valide = o => o && typeof o === 'object' && (!cleAttendue || (o[cleAttendue] !== undefined\n    && !/^\\s*(\\.\\.\\.|…)?\\s*$/.test(typeof o[cleAttendue] === 'string' ? o[cleAttendue] : 'x')));\n  for (let debut = s.lastIndexOf('{'); debut >= 0; debut = s.lastIndexOf('{', debut - 1)) {\n    // fermeture équilibrée (en ignorant les accolades dans les chaînes)\n    let prof = 0, dansChaine = false, echap = false, fin = -1;\n    for (let i = debut; i < s.length; i++) {\n      const c = s[i];\n      if (dansChaine) { if (echap) echap = false; else if (c === '\\\\') echap = true; else if (c === '\"') dansChaine = false; continue; }\n      if (c === '\"') dansChaine = true;\n      else if (c === '{') prof++;\n      else if (c === '}') { prof--; if (prof === 0) { fin = i; break; } }\n    }\n    if (fin < 0) continue;\n    try { const o = JSON.parse(s.slice(debut, fin + 1)); if (valide(o)) return o; } catch (e) { /* on essaie plus haut */ }\n  }\n  return null;\n}\n\n// Longueur minimale du corps (sans le bloc Sources) : réglage « Nb de mots minimum par article » de l'onglet Paramètres\nlet reglages = {};\ntry { reglages = Object.fromEntries($('Lire Paramètres').all().map(i => [String(i.json['Paramètre'] || '').trim(), i.json['Valeur']])); } catch (e) { /* réglage par défaut */ }\nconst MIN_MOTS = parseInt(reglages['Nb de mots minimum par article'], 10) || 120;\nconst compterMots = t => (String(t || '').match(/[\\p{L}\\p{N}][\\p{L}\\p{N}'’-]*/gu) || []).length;\nconst maintenant = new Date();\nconst horodatage = maintenant.toISOString().slice(0, 16).replace(/[-:T]/g, '');\nconst norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();\n\n// Photo : d'abord une photo du thème, sinon une photo du pôle. On alterne entre les photos disponibles.\nconst choisirPhoto = (ev, rang) => {\n  const duTheme = photos.filter(p => norm(p['Thème (optionnel)']) && norm(p['Thème (optionnel)']) === norm(ev.theme));\n  const poles = String(ev.pole || '').split(/\\s*;\\s*/).map(norm).filter(Boolean);\n  const duPole = photos.filter(p => !norm(p['Thème (optionnel)']) && poles.includes(norm(p['Pôle'])));\n  const liste = duTheme.length ? duTheme : duPole;\n  return liste.length ? liste[(rang + Math.floor(Date.now() / 86400000)) % liste.length] : null;\n};\n\nconst sortie = [];\nconst echecs = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  let ev;\n  try { ev = $('Extraire le texte & regrouper').itemMatching(i).json; }\n  catch (e) { ev = ($('Extraire le texte & regrouper').all()[i] || {}).json; }\n  if (!ev || !ev.sources) continue;\n  const brut = texteIA(items[i].json);\n  const a = lireJsonIA(brut, 'titre');\n  if (!a || !a.corps) { // réponse IA inutilisable : on n'écrit rien, mais on le dit\n    echecs.push(`• ${ev.theme} – ${ev.sujet} : ${brut ? 'pas de JSON {titre, chapo, corps} dans la réponse. Fin de la réponse : « …' + brut.slice(-200).replace(/\\s+/g, ' ') + ' »' : 'réponse vide (modèle hors ligne ou erreur IA)'}`);\n    continue;\n  }\n\n  // Les sources citées viennent de NOS données (pas de l'IA) pour éviter toute URL inventée.\n  // Dans le texte de l'article : seulement le nom des médias. Les URL complètes restent dans\n  // la colonne « Sources citées » (elles servent à l'anti-doublon et aux liens du centre de suivi).\n  const sources = ev.sources.map(s => `${s.media} : ${s.url}`);\n  const nomsMedias = [...new Set(ev.sources.map(s => String(s.media || '').trim()).filter(Boolean))];\n  const corps = String(a.corps).trim() + '\\n\\nSources : ' + nomsMedias.join(', ');\n  const photo = choisirPhoto(ev, i);\n  const nbMots = compterMots(a.corps);\n  const motsCles = Array.isArray(a.motsCles) ? a.motsCles.join(', ') : String(a.motsCles || '');\n\n  sortie.push({\n    json: {\n      'ID article': `ART-DP-${horodatage}-${i + 1}`,\n      'Date création': maintenant.toISOString(),\n      'ID événement': ev.idEvenement,\n      'Titre': String(a.titre || '').trim(),\n      'Chapô': String(a.chapo || '').trim(),\n      \"Corps de l'article\": corps,\n      'Thème': ev.theme,\n      'Pôle': ev.pole || '',\n      'Normandie': ev.normandie ? 'Oui' : 'Non',\n      'Mots-clés SEO': motsCles.replace(/\\s+/g, ' ').trim(),\n      'Sources citées (média + URL)': sources.join('\\n'),\n      'Nb de sources': ev.sources.length,\n      'Photo (URL)': photo ? photo['URL image'] : '',\n      'Crédit photo': photo ? photo['Crédit'] : '',\n      'Licence photo': photo ? photo['Licence'] : 'Visuel générique',\n      'Statut': 'À relire',\n      'Date publication': '',\n      'URL publication': '',\n      'Relu par': '',\n      'Format': ev.format || '',\n      // champs internes (non écrits dans le Sheet) : tri des articles trop courts\n      _nbMots: nbMots,\n      _garder: nbMots >= MIN_MOTS,\n    },\n  });\n}\nif (echecs.length && !sortie.length) {\n  throw new Error(`Aucun article exploitable (${echecs.length} réponse(s) IA sans JSON).\\n${echecs.join('\\n')}\\n\\n` +\n    `Cause probable : le modèle écrit son raisonnement et n'a pas fini, ou n'a pas terminé par le JSON. ` +\n    `Dans le sous-nœud Ollama : n'active PAS « Format : JSON » ; augmente Context Length (16384) et vérifie qu'Ollama tourne.`);\n}\nif (echecs.length) console.log('Réponses IA ignorées :\\n' + echecs.join('\\n'));\nconst courts = sortie.filter(o => !o.json._garder);\nif (courts.length) console.log(`Articles de moins de ${MIN_MOTS} mots écartés : ` + courts.map(o => `${o.json['Thème']} – ${o.json['Titre']} (${o.json._nbMots} mots)`).join(' | '));\nreturn sortie;\n"
       },
       "name": "Préparer l'article",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "ef37e223-eff9-4968-af30-fc15b2664545",
+      "id": "f70d251b-94bb-4722-9a4a-519cdbe37cac",
       "position": [
-        12960,
-        3456
+        3392,
+        976
       ]
     },
     {
@@ -371,10 +371,10 @@
       "name": "Scorer & sélectionner",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "f36d187f-0705-4470-9044-5826816353be",
+      "id": "ae062a66-a832-462b-8b77-b22e93efe4fc",
       "position": [
-        11488,
-        3552
+        1920,
+        1072
       ]
     },
     {
@@ -396,10 +396,10 @@
       "typeVersion": 4.5,
       "executeOnce": true,
       "alwaysOutputData": true,
-      "id": "b8fb9175-8f55-4328-80f5-6ec0ab81e7d8",
+      "id": "7efab284-0bcb-4d65-8bb8-12da500b8e1a",
       "position": [
-        10240,
-        3392
+        672,
+        912
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -427,10 +427,10 @@
       "typeVersion": 4.5,
       "executeOnce": true,
       "alwaysOutputData": true,
-      "id": "16359231-f516-48f7-92e5-e27c3548cc2d",
+      "id": "b74bf5ea-0a8e-46bc-92a7-7241d245aeab",
       "position": [
-        9792,
-        3392
+        224,
+        912
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -458,10 +458,10 @@
       "typeVersion": 4.5,
       "executeOnce": true,
       "alwaysOutputData": true,
-      "id": "e95ccb8e-0399-4164-833b-9d48c52fe3a9",
+      "id": "34fe0ec1-ffbf-4ab2-ad14-bc52b2be2ebc",
       "position": [
-        10016,
-        3392
+        448,
+        912
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -703,10 +703,10 @@
       "name": "Passer en Ignoré",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "id": "7369e0e9-c6c9-4966-82bf-0815ab6020f3",
+      "id": "e236d90e-dceb-4f99-8f1c-29d9c8274c9f",
       "position": [
-        11200,
-        3840
+        1632,
+        1360
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -816,16 +816,6 @@
             {
               "id": "Normandie",
               "displayName": "Normandie",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "Meta description (SEO)",
-              "displayName": "Meta description (SEO)",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -955,10 +945,10 @@
       "name": "Écrire dans Articles",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "id": "7f55201d-4dcc-4372-8f78-5c66ef1c7814",
+      "id": "e6c03ac7-7b63-4b7a-b07a-b42128efe1fd",
       "position": [
-        13424,
-        3456
+        3856,
+        976
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -1200,10 +1190,10 @@
       "name": "Passer en Utilisé",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "id": "cac1f065-7f56-4736-97e4-a08df35baff7",
+      "id": "faed39c7-665a-4326-9b39-15300598fbc8",
       "position": [
-        13872,
-        3456
+        4304,
+        976
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -1219,10 +1209,10 @@
       "name": "Préparer regroupement",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "8725c12b-3e27-4176-b3d2-48358d82d1d6",
+      "id": "802cea65-eaa2-4fb0-99f5-cbf9397fcd39",
       "position": [
-        10912,
-        3552
+        1344,
+        1072
       ]
     },
     {
@@ -1232,10 +1222,10 @@
       "name": "Actus expirées",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "bddc5813-46a8-42d9-8742-0bba4b31cd58",
+      "id": "f89cc401-5630-480d-b1ab-17f091c7383d",
       "position": [
-        10912,
-        3840
+        1344,
+        1360
       ]
     },
     {
@@ -1245,10 +1235,10 @@
       "name": "Éclater les sources",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "156756c6-9a62-418d-a388-f1411c4d9c79",
+      "id": "e920a768-3aa9-41cd-8fba-90fb96ed4435",
       "position": [
-        11712,
-        3456
+        2144,
+        976
       ]
     },
     {
@@ -1258,10 +1248,10 @@
       "name": "Extraire le texte & regrouper",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "20b884b5-8a20-43ec-944d-c158514ff3a9",
+      "id": "7496f91a-8452-422d-a5fc-6dd18ff9a1c0",
       "position": [
-        12384,
-        3456
+        2816,
+        976
       ]
     },
     {
@@ -1271,10 +1261,10 @@
       "name": "Marquer les actus utilisées",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "fc5190d2-586f-49dd-8bf7-06363d0ca7c9",
+      "id": "d46da017-879b-429b-a9f1-182ce3f7091e",
       "position": [
-        13648,
-        3456
+        4080,
+        976
       ],
       "executeOnce": true
     },
@@ -1298,10 +1288,10 @@
       "name": "Extraire paragraphes",
       "type": "n8n-nodes-base.html",
       "typeVersion": 1.2,
-      "id": "1cef9588-186b-41e2-a9f4-326f634aa222",
+      "id": "02fcd1da-74b8-4786-9d09-be62293a65e7",
       "position": [
-        12160,
-        3456
+        2592,
+        976
       ],
       "onError": "continueRegularOutput"
     },
@@ -1323,12 +1313,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        14304,
-        3456
+        4736,
+        976
       ],
-      "id": "8da438f3-711e-4dc6-abf2-f826472115b6",
-      "name": "Prévenir sur Google Chat",
-      "notes": "Colle ici l'URL du webhook Google Chat (non publiée dans le dépôt GitHub)"
+      "id": "cd5c342e-f316-4c5a-bf2d-089b18e14720",
+      "name": "Prévenir sur Google Chat"
     },
     {
       "parameters": {
@@ -1337,10 +1326,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        14096,
-        3456
+        4528,
+        976
       ],
-      "id": "874f5d70-f6d4-46ae-9499-78cd71d13d8c",
+      "id": "a0b8fdc2-51ed-4569-934c-69b8af2c1faa",
       "name": "Un seul message",
       "executeOnce": true
     },
@@ -1351,10 +1340,10 @@
       "name": "Garder les articles assez longs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "f768b36f-d387-488a-a58c-57889b33bfd2",
+      "id": "03c90450-f268-4707-bbd8-a703feb6a705",
       "position": [
-        13200,
-        3456
+        3632,
+        976
       ]
     },
     {
@@ -1364,10 +1353,10 @@
       "name": "Actus des articles trop courts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "id": "38a1ecea-d311-4180-955b-3db3cfdb070f",
+      "id": "910144b9-cc02-442c-bdd1-01002f48096c",
       "position": [
-        13200,
-        3680
+        3632,
+        1200
       ]
     },
     {
@@ -1389,10 +1378,10 @@
       "typeVersion": 4.5,
       "executeOnce": true,
       "alwaysOutputData": true,
-      "id": "c987c236-53fb-4922-a2a0-c99b74ca05f4",
+      "id": "5702d438-a570-4533-bcf4-fb95bb6dbe6c",
       "position": [
-        10240,
-        3600
+        672,
+        1120
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -1406,11 +1395,71 @@
       "name": "Test manuel",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "id": "4374f11c-a105-477b-8912-0cbc29b62248",
+      "id": "bbeba171-25f0-4e38-9ffe-cb68653b26cd",
       "position": [
-        9568,
-        3600
+        0,
+        1120
       ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        3152,
+        1168
+      ],
+      "id": "a20800cc-69fb-4a90-92b1-ff4a80b55a21",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "DkOmPdJSZObeZBxZ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemma-4-26b-a4b-it",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        1168
+      ],
+      "id": "f69fadfb-d0b9-49c3-8f36-5caadb280f53",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "DkOmPdJSZObeZBxZ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "mistral-large-2512",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        2992,
+        1184
+      ],
+      "id": "88a84901-7071-47ce-9243-c794f2f09000",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "WNXCLgGjxsflBevh",
+          "name": "Mistral Cloud account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1461,24 +1510,12 @@
     },
     "Ollama Model2": {
       "ai_languageModel": [
-        [
-          {
-            "node": "IA : rédiger l'article",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Ollama Model3": {
       "ai_languageModel": [
-        [
-          {
-            "node": "IA : regrouper en sujets",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Lire Actus": {
@@ -1758,20 +1795,41 @@
           }
         ]
       ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IA : rédiger l'article",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IA : regrouper en sujets",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
-    "timeSavedMode": "fixed",
-    "timezone": "Europe/Paris",
-    "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
+    "binaryMode": "separate"
   },
-  "meta": {
-    "templateCredsSetupCompleted": true
-  },
+  "meta": {},
   "nodeGroups": [],
   "tags": []
 }
